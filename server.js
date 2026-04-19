@@ -8,11 +8,12 @@ const path = require('path');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const DEFAULT_USER_ID = Number(process.env.DEFAULT_USER_ID || 1);
 
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
   user: process.env.DB_USER || 'tu_usuario',
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || '127.0.0.1',
   database: process.env.DB_NAME || 'ipsasel_db',
   password: process.env.DB_PASSWORD || 'tu_password',
   port: Number(process.env.DB_PORT || 5432),
@@ -121,7 +122,12 @@ app.post('/register-visit', async (req, res) => {
     }
 
     const codigo_visita = `VIS-${Date.now()}`;
-    const id_usuario = req.session.userId || 1;
+    const id_usuario = req.session.userId || DEFAULT_USER_ID;
+
+    const userCheck = await pool.query('SELECT id_usuario FROM USUARIOS WHERE id_usuario = $1', [id_usuario]);
+    if (userCheck.rows.length === 0) {
+      return res.status(400).send(`Error: el usuario predeterminado con id ${id_usuario} no existe. Configura DEFAULT_USER_ID en .env o inicia sesión.`);
+    }
 
     await pool.query(
       'INSERT INTO VISITAS (codigo_visita, fecha, hora, tipo_visita, estatus, id_contacto, id_usuario, id_orden) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',

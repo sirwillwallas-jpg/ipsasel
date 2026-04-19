@@ -27,16 +27,23 @@ Backend en Node.js con Express y PostgreSQL para el registro y gestión de visit
    ```env
    DB_USER=tu_usuario
    DB_PASSWORD=tu_password
-   DB_HOST=localhost
+   DB_HOST=127.0.0.1
    DB_NAME=ipsasel_db
    DB_PORT=5432
+   DEFAULT_USER_ID=1
    SESSION_SECRET=secreto_ipsasel
    PORT=3000
    ```
 
 6. Inserta datos iniciales (ejemplo):
    - Crea un rol: `INSERT INTO ROLES (nombre_rol) VALUES ('Admin');`
-   - Crea un usuario: `INSERT INTO USUARIOS (id_rol, nombre_completo, username, password) VALUES (1, 'Admin', 'admin', 'hash_de_password');`
+   - Crea un usuario: `INSERT INTO USUARIOS (id_rol, nombre_completo, username, password) VALUES (1, 'Administrador', 'admin', '$2b$10$abcdefghijklmnopqrstuv');`  (usa un hash bcrypt real para password)
+
+   Para generar un hash bcrypt, usa Node.js:
+   ```javascript
+   const bcrypt = require('bcrypt');
+   bcrypt.hash('tu_password', 10).then(hash => console.log(hash));
+   ```
 
 ## Ejecutar
 
