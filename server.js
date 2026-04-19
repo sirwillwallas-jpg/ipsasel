@@ -54,11 +54,11 @@ app.use(session({
   resave: false,
   saveUninitialized: true,
 }));
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), { index: false }));
 
 // Rutas
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'menu_index.html'));
 });
 
 app.get('/register-visit', (req, res) => {

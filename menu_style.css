@@ -84,22 +84,30 @@ body {
 
 /* Botones del Menú */
 .menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
+    min-height: 46px;
     background-color: var(--btn-bg);
     color: var(--sidebar-text);
     border: none;
-    padding: 12px 15px;
-    margin-bottom: 5px;
-    border-radius: 8px;
-    text-align: left;
+    padding: 12px 18px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    text-decoration: none;
+    text-align: center;
     font-size: 1rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
 }
 
 .menu-btn:hover {
     background-color: var(--btn-hover);
     color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
 }
 
 .menu-btn:active {
