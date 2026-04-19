@@ -14,7 +14,7 @@
     </div>
 
     <h2>Registro de Control de Visitas</h2>
-    <form action="#" method="POST">
+    <form action="/register-visit" method="POST">
         <div class="grid-layout">
             
             <div class="form-group">
@@ -28,13 +28,13 @@
             </div>
 
             <div class="form-group">
-                <label for="nombre">Nombre Completo</label>
-                <input type="text" id="nombre" name="nombre" placeholder="Ej. Juan Pérez" required>
+                <label for="nombre_entidad">Nombre Completo / Entidad</label>
+                <input type="text" id="nombre_entidad" name="nombre_entidad" placeholder="Ej. Juan Pérez o Empresa XYZ" required>
             </div>
 
             <div class="form-group">
-                <label for="cedula">Cédula / ID</label>
-                <input type="text" id="cedula" name="cedula" placeholder="Documento de identidad" required>
+                <label for="cedula_rif">Cédula / RIF</label>
+                <input type="text" id="cedula_rif" name="cedula_rif" placeholder="Documento de identidad" required>
             </div>
 
             <div class="form-group">
@@ -43,37 +43,45 @@
             </div>
 
             <div class="form-group">
-                <label for="entidad">Entidad Laboral (Empresa)</label>
-                <input type="text" id="entidad" name="entidad" placeholder="De donde proviene">
+                <label for="tipo_contacto">Tipo de Contacto</label>
+                <select id="tipo_contacto" name="tipo_contacto">
+                    <option value="Individual">Individual</option>
+                    <option value="Empresa">Empresa</option>
+                    <option value="Organización">Organización</option>
+                </select>
             </div>
 
             <div class="form-group">
                 <label for="tipo_visita">Tipo de Visita</label>
                 <select id="tipo_visita" name="tipo_visita">
-                    <option value="tecnica">Técnica</option>
-                    <option value="administrativa">Administrativa</option>
-                    <option value="comercial">Comercial</option>
-                    <option value="personal">Personal</option>
+                    <option value="Técnica">Técnica</option>
+                    <option value="Administrativa">Administrativa</option>
+                    <option value="Comercial">Comercial</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Inspección">Inspección</option>
+                    <option value="Soporte">Soporte</option>
                 </select>
             </div>
 
             <div class="form-group">
                 <label for="estatus">Estatus de Visita</label>
                 <select id="estatus" name="estatus">
-                    <option value="programada">Programada</option>
-                    <option value="no_programada">No Programada</option>
-                    <option value="emergencia">Emergencia</option>
+                    <option value="Planificada">Planificada</option>
+                    <option value="No Programada">No Programada</option>
+                    <option value="Emergencia">Emergencia</option>
+                    <option value="En Curso">En Curso</option>
+                    <option value="Completada">Completada</option>
                 </select>
             </div>
 
-            <div class="form-group full-width">
-                <label for="funcionario">Funcionario que Recibe</label>
-                <input type="text" id="funcionario" name="funcionario" placeholder="Nombre del responsable interno" required>
+            <div class="form-group">
+                <label for="codigo_ot">Código OT (Opcional)</label>
+                <input type="text" id="codigo_ot" name="codigo_ot" placeholder="Código de orden de trabajo">
             </div>
 
             <div class="form-group full-width">
-                <label for="motivo">Motivo de la Visita</label>
-                <textarea id="motivo" name="motivo" rows="3" placeholder="Describa brevemente el propósito de su visita..."></textarea>
+                <label for="detalle_ot">Detalle OT (Opcional)</label>
+                <textarea id="detalle_ot" name="detalle_ot" rows="2" placeholder="Detalle de la orden de trabajo"></textarea>
             </div>
 
             <button type="submit" class="btn-submit full-width">Registrar Visita</button>
