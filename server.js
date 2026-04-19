@@ -61,6 +61,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/register-visit', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.get('/menu', (req, res) => {
   res.sendFile(path.join(__dirname, 'menu_index.html'));
 });
