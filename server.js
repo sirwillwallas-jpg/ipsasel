@@ -65,6 +65,10 @@ app.get('/register-visit', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/modify-visit', (req, res) => {
+  res.sendFile(path.join(__dirname, 'modify_visit.html'));
+});
+
 app.get('/menu', (req, res) => {
   res.sendFile(path.join(__dirname, 'menu_index.html'));
 });
@@ -165,6 +169,36 @@ app.post('/register-visit', async (req, res) => {
   }
 });
 
+// API para buscar visitas por código o datos parciales
+app.get('/api/visitas', async (req, res) => {
+  const { codigo_visita } = req.query;
+  if (!codigo_visita) {
+    return res.status(400).json({ success: false, message: 'Código de visita requerido' });
+  }
+
+  try {
+    const searchTerm = `%${codigo_visita.trim()}%`;
+    const result = await pool.query(`
+      SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
+             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             o.codigo_ot, o.detalle AS detalle_ot
+      FROM VISITAS v
+      LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
+      LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
+      WHERE v.codigo_visita ILIKE $1
+         OR c.cedula_rif ILIKE $1
+         OR c.nombre_entidad ILIKE $1
+      ORDER BY v.fecha DESC, v.hora DESC
+      LIMIT 20
+    `, [searchTerm]);
+
+    res.json({ success: true, visits: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Error al buscar visitas' });
+  }
+});
+
 // Listar visitas recientes
 app.get('/visitas', async (req, res) => {
   try {
@@ -182,6 +216,94 @@ app.get('/visitas', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Error al obtener visitas');
+  }
+});
+
+// Ruta para modificar visita
+app.post('/modify-visit', async (req, res) => {
+  const {
+    codigo_visita,
+    fecha,
+    hora,
+    tipo_visita,
+    estatus,
+    cedula_rif,
+    nombre_entidad,
+    telefono,
+    tipo_contacto,
+    codigo_ot,
+    detalle_ot
+  } = req.body;
+
+  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
+  const errors = validateVisitBody(req.body);
+
+  if (!codigo_visita) {
+    const message = 'Código de visita es obligatorio para modificar.';
+    return wantsJson ? res.status(400).json({ success: false, message }) : res.status(400).send(message);
+  }
+
+  if (errors.length > 0) {
+    const message = `Errores de validación: ${errors.join(' ')}`;
+    return wantsJson
+      ? res.status(400).json({ success: false, message, errors })
+      : res.status(400).send(message);
+  }
+
+  try {
+    const visitCheck = await pool.query('SELECT id_orden FROM VISITAS WHERE codigo_visita = $1', [codigo_visita]);
+    if (visitCheck.rows.length === 0) {
+      const message = `Visita ${codigo_visita} no encontrada.`;
+      return wantsJson ? res.status(404).json({ success: false, message }) : res.status(404).send(message);
+    }
+
+    let id_orden = visitCheck.rows[0].id_orden;
+
+    // Insertar o actualizar contacto
+    let contactoResult = await pool.query(
+      'SELECT id_contacto FROM CONTACTOS WHERE cedula_rif = $1',
+      [cedula_rif]
+    );
+
+    let id_contacto;
+    if (contactoResult.rows.length > 0) {
+      id_contacto = contactoResult.rows[0].id_contacto;
+      await pool.query(
+        'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
+        [nombre_entidad, telefono, tipo_contacto, id_contacto]
+      );
+    } else {
+      const insertContacto = await pool.query(
+        'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
+        [cedula_rif, nombre_entidad, telefono, tipo_contacto]
+      );
+      id_contacto = insertContacto.rows[0].id_contacto;
+    }
+
+    if (codigo_ot) {
+      const ordenResult = await pool.query(
+        'INSERT INTO ORDENES_TRABAJO (codigo_ot, detalle) VALUES ($1, $2) ON CONFLICT (codigo_ot) DO UPDATE SET detalle = EXCLUDED.detalle RETURNING id_orden',
+        [codigo_ot, detalle_ot || '']
+      );
+      id_orden = ordenResult.rows[0].id_orden;
+    }
+
+    await pool.query(
+      'UPDATE VISITAS SET fecha = $1, hora = $2, tipo_visita = $3, estatus = $4, id_contacto = $5, id_orden = $6 WHERE codigo_visita = $7',
+      [fecha, hora, tipo_visita, estatus, id_contacto, id_orden, codigo_visita]
+    );
+
+    const message = `Visita ${codigo_visita} actualizada correctamente.`;
+    if (wantsJson) {
+      return res.json({ success: true, message, codigo_visita });
+    }
+    return res.redirect(303, `/success?code=${encodeURIComponent(codigo_visita)}`);
+  } catch (err) {
+    console.error(err);
+    const message = `Error al modificar la visita: ${err.message}`;
+    return wantsJson
+      ? res.status(500).json({ success: false, message })
+      : res.status(500).send(message);
   }
 });
 

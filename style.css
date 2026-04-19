@@ -190,6 +190,48 @@ textarea:focus {
     background: #eff6ff;
 }
 
+.back-row {
+    margin-bottom: 22px;
+}
+
+.back-btn {
+    display: inline-flex;
+    width: auto;
+    padding: 12px 20px;
+}
+
+.search-inline {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.search-inline input {
+    flex: 1;
+}
+
+.search-results {
+    margin-top: 16px;
+    display: grid;
+    gap: 12px;
+}
+
+.search-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 16px;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    gap: 16px;
+}
+
+.search-item button {
+    margin: 0;
+}
+
 .success-card {
     display: flex;
     flex-direction: column;

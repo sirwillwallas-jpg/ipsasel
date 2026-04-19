@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modificar Visita</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="form-container">
+    <h2>Modificar Registro de Visita</h2>
+    <p class="subtitle">Busca la visita por código y actualiza los detalles. Si cambias el código OT, completa también el detalle.</p>
+    <div class="back-row">
+        <a href="/menu" class="btn-secondary back-btn">Volver al inicio</a>
+    </div>
+
+    <div class="form-group full-width">
+        <label for="search_codigo_visita">Buscar Visita por Código</label>
+        <div class="search-inline">
+            <input type="text" id="search_codigo_visita" placeholder="Ingresa código de visita o nombre" />
+            <button type="button" id="search-button" class="btn-secondary">Buscar</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+    </div>
+
+    <form id="modify-form" action="/modify-visit" method="POST" style="display:none;">
+        <div class="grid-layout">
+            <div class="form-group full-width">
+                <label for="codigo_visita">Código de Visita</label>
+                <input type="text" id="codigo_visita" name="codigo_visita" placeholder="Ej. VIS-1684096828000" readonly required>
+            </div>
+
+            <div class="form-group">
+                <label for="fecha">Fecha</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+
+            <div class="form-group">
+                <label for="hora">Hora de Ingreso</label>
+                <input type="time" id="hora" name="hora" required>
+            </div>
+
+            <div class="form-group">
+                <label for="nombre_entidad">Nombre Completo / Entidad</label>
+                <input type="text" id="nombre_entidad" name="nombre_entidad" placeholder="Ej. Juan Pérez o Empresa XYZ" required>
+            </div>
+
+            <div class="form-group">
+                <label for="cedula_rif">Cédula / RIF</label>
+                <input type="text" id="cedula_rif" name="cedula_rif" placeholder="Documento de identidad" required>
+            </div>
+
+            <div class="form-group">
+                <label for="telefono">Teléfono</label>
+                <input type="tel" id="telefono" name="telefono" placeholder="Ej. +58 412..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="tipo_contacto">Tipo de Contacto</label>
+                <select id="tipo_contacto" name="tipo_contacto">
+                    <option value="Individual">Individual</option>
+                    <option value="Empresa">Empresa</option>
+                    <option value="Organización">Organización</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="tipo_visita">Tipo de Visita</label>
+                <select id="tipo_visita" name="tipo_visita">
+                    <option value="Técnica">Técnica</option>
+                    <option value="Administrativa">Administrativa</option>
+                    <option value="Comercial">Comercial</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Inspección">Inspección</option>
+                    <option value="Soporte">Soporte</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="estatus">Estatus de Visita</label>
+                <select id="estatus" name="estatus">
+                    <option value="Planificada">Planificada</option>
+                    <option value="No Programada">No Programada</option>
+                    <option value="Emergencia">Emergencia</option>
+                    <option value="En Curso">En Curso</option>
+                    <option value="Completada">Completada</option>
+                </select>
+            </div>
+
+            <div class="form-group checkbox-group full-width">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="toggle-ot" name="toggle_ot">
+                    Añadir/Editar Código OT
+                </label>
+            </div>
+
+            <div id="ot-fields" class="hidden-fields full-width">
+                <div class="form-group full-width">
+                    <label for="codigo_ot">Código OT</label>
+                    <input type="text" id="codigo_ot" name="codigo_ot" placeholder="Código de orden de trabajo">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="detalle_ot">Detalle OT</label>
+                    <textarea id="detalle_ot" name="detalle_ot" rows="2" placeholder="Detalle de la orden de trabajo"></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit full-width">Guardar cambios</button>
+        </div>
+    </form>
+</div>
+
+<script>
+const otToggle = document.getElementById('toggle-ot');
+const otFields = document.getElementById('ot-fields');
+const otCode = document.getElementById('codigo_ot');
+const otDetail = document.getElementById('detalle_ot');
+
+otToggle.addEventListener('change', () => {
+  if (otToggle.checked) {
+    otFields.style.display = 'grid';
+  } else {
+    otFields.style.display = 'none';
+    otCode.value = '';
+    otDetail.value = '';
+  }
+});
+
+otFields.style.display = 'none';
+
+const searchInput = document.getElementById('search_codigo_visita');
+const searchButton = document.getElementById('search-button');
+const searchResults = document.getElementById('search-results');
+const modifyForm = document.getElementById('modify-form');
+const visitCodeInput = document.getElementById('codigo_visita');
+
+function createSearchItem(visit) {
+  const item = document.createElement('div');
+  item.className = 'search-item';
+  item.innerHTML = `
+    <div>
+      <strong>${visit.codigo_visita}</strong> — ${visit.nombre_entidad || 'Sin nombre'}<br>
+      ${visit.fecha} ${visit.hora} • ${visit.tipo_visita} • ${visit.estatus}
+    </div>
+    <button class="btn-secondary">Editar</button>
+  `;
+  item.querySelector('button').addEventListener('click', () => {
+    loadVisit(visit);
+  });
+  return item;
+}
+
+function showSearchResults(visits) {
+  searchResults.innerHTML = '';
+  if (!visits.length) {
+    searchResults.textContent = 'No se encontraron visitas con ese código.';
+    return;
+  }
+  visits.forEach((visit) => searchResults.appendChild(createSearchItem(visit)));
+}
+
+function loadVisit(visit) {
+  modifyForm.style.display = 'block';
+  searchResults.innerHTML = '';
+  visitCodeInput.value = visit.codigo_visita;
+  document.getElementById('fecha').value = visit.fecha;
+  document.getElementById('hora').value = visit.hora;
+  document.getElementById('nombre_entidad').value = visit.nombre_entidad || '';
+  document.getElementById('cedula_rif').value = visit.cedula_rif || '';
+  document.getElementById('telefono').value = visit.telefono || '';
+  document.getElementById('tipo_contacto').value = visit.tipo_contacto || 'Individual';
+  document.getElementById('tipo_visita').value = visit.tipo_visita || 'Técnica';
+  document.getElementById('estatus').value = visit.estatus || 'Planificada';
+  if (visit.codigo_ot) {
+    otToggle.checked = true;
+    otFields.style.display = 'grid';
+    otCode.value = visit.codigo_ot;
+    otDetail.value = visit.detalle_ot || '';
+  } else {
+    otToggle.checked = false;
+    otFields.style.display = 'none';
+    otCode.value = '';
+    otDetail.value = '';
+  }
+}
+
+searchButton.addEventListener('click', async () => {
+  const query = searchInput.value.trim();
+  if (!query) {
+    searchResults.textContent = 'Escribe un código o nombre para buscar.';
+    return;
+  }
+  searchResults.textContent = 'Buscando...';
+  try {
+    const response = await fetch(`/api/visitas?codigo_visita=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    showSearchResults(data.visits || []);
+  } catch (err) {
+    searchResults.textContent = 'Error al consultar las visitas. Intenta de nuevo.';
+  }
+});
+</script>
+
+</body>
+</html>
