@@ -23,15 +23,15 @@ Backend en Node.js con Express y PostgreSQL para el registro y gestión de visit
    - Crea la base de datos en PostgreSQL.
    - Ejecuta el esquema desde `schema.sql`.
 
-5. Edita `server.js` con tus credenciales de PostgreSQL:
-   ```javascript
-   const pool = new Pool({
-     user: 'tu_usuario',
-     host: 'localhost',
-     database: 'ipsasel_db',
-     password: 'tu_password',
-     port: 5432,
-   });
+5. Crea un archivo `.env` en la raíz del proyecto con tus credenciales:
+   ```env
+   DB_USER=tu_usuario
+   DB_PASSWORD=tu_password
+   DB_HOST=localhost
+   DB_NAME=ipsasel_db
+   DB_PORT=5432
+   SESSION_SECRET=secreto_ipsasel
+   PORT=3000
    ```
 
 6. Inserta datos iniciales (ejemplo):
