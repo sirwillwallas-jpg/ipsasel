@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
@@ -6,16 +7,43 @@ const bodyParser = require('body-parser');
 const path = require('path');
 
 const app = express();
-const port = 3000;
+const port = Number(process.env.PORT || 3000);
 
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
-  user: 'tu_usuario', // Cambia por tu usuario de PostgreSQL
-  host: 'localhost',
-  database: 'ipsasel_db', // Cambia por el nombre de tu base de datos
-  password: 'tu_password', // Cambia por tu contraseña
-  port: 5432,
+  user: process.env.DB_USER || 'tu_usuario',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'ipsasel_db',
+  password: process.env.DB_PASSWORD || 'tu_password',
+  port: Number(process.env.DB_PORT || 5432),
 });
+
+const ALLOWED_TIPOS = ['Técnica', 'Comercial', 'Soporte', 'Inspección', 'Personal', 'Administrativa'];
+const ALLOWED_ESTATUS = ['Planificada', 'En Curso', 'Completada', 'Revisada', 'Cancelada', 'No Programada', 'Emergencia'];
+const ALLOWED_TIPO_CONTACTO = ['Individual', 'Empresa', 'Organización'];
+
+function validateVisitBody(body) {
+  const errors = [];
+  const { fecha, hora, tipo_visita, estatus, cedula_rif, nombre_entidad, telefono, tipo_contacto } = body;
+
+  if (!fecha) errors.push('Fecha es obligatoria.');
+  if (!hora) errors.push('Hora es obligatoria.');
+  if (!tipo_visita) errors.push('Tipo de visita es obligatorio.');
+  if (tipo_visita && !ALLOWED_TIPOS.includes(tipo_visita)) errors.push(`Tipo de visita inválido. Valores válidos: ${ALLOWED_TIPOS.join(', ')}.`);
+  if (!estatus) errors.push('Estatus es obligatorio.');
+  if (estatus && !ALLOWED_ESTATUS.includes(estatus)) errors.push(`Estatus inválido. Valores válidos: ${ALLOWED_ESTATUS.join(', ')}.`);
+  if (!cedula_rif) errors.push('Cédula o RIF es obligatorio.');
+  if (!nombre_entidad) errors.push('Nombre o entidad es obligatorio.');
+  if (!telefono) errors.push('Teléfono es obligatorio.');
+  if (!tipo_contacto) errors.push('Tipo de contacto es obligatorio.');
+  if (tipo_contacto && !ALLOWED_TIPO_CONTACTO.includes(tipo_contacto)) errors.push(`Tipo de contacto inválido. Valores válidos: ${ALLOWED_TIPO_CONTACTO.join(', ')}.`);
+
+  if (fecha && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha)) errors.push('Formato de fecha inválido. Use AAAA-MM-DD.');
+  if (hora && !/^[0-9]{2}:[0-9]{2}$/.test(hora)) errors.push('Formato de hora inválido. Use HH:MM.');
+  if (telefono && telefono.length < 7) errors.push('Teléfono parece demasiado corto.');
+
+  return errors;
+}
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -55,6 +83,11 @@ app.post('/register-visit', async (req, res) => {
     detalle_ot
   } = req.body;
 
+  const errors = validateVisitBody(req.body);
+  if (errors.length > 0) {
+    return res.status(400).send(`Errores de validación:\n${errors.join('\n')}`);
+  }
+
   try {
     // Insertar o actualizar contacto
     let contactoResult = await pool.query(
@@ -65,6 +98,10 @@ app.post('/register-visit', async (req, res) => {
     let id_contacto;
     if (contactoResult.rows.length > 0) {
       id_contacto = contactoResult.rows[0].id_contacto;
+      await pool.query(
+        'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
+        [nombre_entidad, telefono, tipo_contacto, id_contacto]
+      );
     } else {
       const insertContacto = await pool.query(
         'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
@@ -83,20 +120,38 @@ app.post('/register-visit', async (req, res) => {
       id_orden = ordenResult.rows[0].id_orden;
     }
 
-    // Generar código de visita único
     const codigo_visita = `VIS-${Date.now()}`;
+    const id_usuario = req.session.userId || 1;
 
-    // Insertar visita (asumiendo id_usuario = 1 por ahora, cambiar según autenticación)
-    const id_usuario = 1; // TODO: Obtener del session
     await pool.query(
       'INSERT INTO VISITAS (codigo_visita, fecha, hora, tipo_visita, estatus, id_contacto, id_usuario, id_orden) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
       [codigo_visita, fecha, hora, tipo_visita, estatus, id_contacto, id_usuario, id_orden]
     );
 
-    res.send('Visita registrada exitosamente. Código: ' + codigo_visita);
+    res.send(`Visita registrada exitosamente. Código: ${codigo_visita}`);
   } catch (err) {
     console.error(err);
     res.status(500).send('Error al registrar la visita');
+  }
+});
+
+// Listar visitas recientes
+app.get('/visitas', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
+             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             o.codigo_ot, o.detalle AS detalle_ot
+      FROM VISITAS v
+      LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
+      LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
+      ORDER BY v.fecha DESC, v.hora DESC
+      LIMIT 50
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al obtener visitas');
   }
 });
 
