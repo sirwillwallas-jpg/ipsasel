@@ -131,7 +131,7 @@ app.post('/register-visit', async (req, res) => {
     res.send(`Visita registrada exitosamente. Código: ${codigo_visita}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error al registrar la visita');
+    res.status(500).send(`Error al registrar la visita: ${err.message}`);
   }
 });
 
