@@ -126,7 +126,8 @@ app.post('/register-visit', async (req, res) => {
 
     const userCheck = await pool.query('SELECT id_usuario FROM USUARIOS WHERE id_usuario = $1', [id_usuario]);
     if (userCheck.rows.length === 0) {
-      return res.status(400).send(`Error: el usuario predeterminado con id ${id_usuario} no existe. Configura DEFAULT_USER_ID en .env o inicia sesión.`);
+      const message = `Error: el usuario predeterminado con id ${id_usuario} no existe. Configura DEFAULT_USER_ID en .env o inicia sesión.`;
+      return res.status(400).json({ success: false, message });
     }
 
     await pool.query(
@@ -134,10 +135,19 @@ app.post('/register-visit', async (req, res) => {
       [codigo_visita, fecha, hora, tipo_visita, estatus, id_contacto, id_usuario, id_orden]
     );
 
-    res.send(`Visita registrada exitosamente. Código: ${codigo_visita}`);
+    const message = `Visita registrada exitosamente. Código: ${codigo_visita}`;
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.json({ success: true, message, codigo_visita });
+    }
+
+    return res.send(message);
   } catch (err) {
     console.error(err);
-    res.status(500).send(`Error al registrar la visita: ${err.message}`);
+    const message = `Error al registrar la visita: ${err.message}`;
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.status(500).json({ success: false, message });
+    }
+    res.status(500).send(message);
   }
 });
 

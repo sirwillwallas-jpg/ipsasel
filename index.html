@@ -14,7 +14,9 @@
     </div>
 
     <h2>Registro de Control de Visitas</h2>
-    <form action="/register-visit" method="POST">
+    <p class="subtitle">Registra la visita de un proveedor o visitante de manera rápida y segura. Al enviar, verás un mensaje de confirmación inmediato.</p>
+    <div id="message-container"></div>
+    <form id="visit-form" action="/register-visit" method="POST">
         <div class="grid-layout">
             
             <div class="form-group">
@@ -88,6 +90,54 @@
         </div>
     </form>
 </div>
+
+<script>
+const form = document.getElementById('visit-form');
+const messageContainer = document.getElementById('message-container');
+
+function createMessageCard(message, success = true) {
+  const card = document.createElement('div');
+  card.className = success ? 'success-card' : 'error-card';
+  card.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill="${success ? '#a7f3d0' : '#fecaca'}"/>
+      <path d="M7 12.5L10 15.5L17 8.5" stroke="${success ? '#166534' : '#991b1b'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h3>${success ? 'Registro Exitoso' : 'Error'}</h3>
+    <p>${message}</p>
+  `;
+  return card;
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  messageContainer.innerHTML = '';
+
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+
+  try {
+    const response = await fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json'
+      },
+      body: formData
+    });
+
+    const result = await response.json().catch(() => ({ success: response.ok, message: response.statusText }));
+    const card = createMessageCard(result.message || 'Solicitud procesada', response.ok && result.success !== false);
+    messageContainer.appendChild(card);
+
+    if (response.ok && result.success) {
+      form.reset();
+    }
+  } catch (err) {
+    const card = createMessageCard('No se pudo conectar con el servidor. Intenta de nuevo.', false);
+    messageContainer.appendChild(card);
+  }
+});
+</script>
 
 </body>
 </html>
