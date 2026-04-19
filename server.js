@@ -92,9 +92,14 @@ app.post('/register-visit', async (req, res) => {
     detalle_ot
   } = req.body;
 
+  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   const errors = validateVisitBody(req.body);
+
   if (errors.length > 0) {
-    return res.status(400).send(`Errores de validación:\n${errors.join('\n')}`);
+    const message = `Errores de validación: ${errors.join(' ')}`;
+    return wantsJson
+      ? res.status(400).json({ success: false, message, errors })
+      : res.status(400).send(message);
   }
 
   try {
@@ -135,7 +140,9 @@ app.post('/register-visit', async (req, res) => {
     const userCheck = await pool.query('SELECT id_usuario FROM USUARIOS WHERE id_usuario = $1', [id_usuario]);
     if (userCheck.rows.length === 0) {
       const message = `Error: el usuario predeterminado con id ${id_usuario} no existe. Configura DEFAULT_USER_ID en .env o inicia sesión.`;
-      return res.status(400).json({ success: false, message });
+      return wantsJson
+        ? res.status(400).json({ success: false, message })
+        : res.status(400).send(message);
     }
 
     await pool.query(
@@ -144,18 +151,17 @@ app.post('/register-visit', async (req, res) => {
     );
 
     const message = `Visita registrada exitosamente. Código: ${codigo_visita}`;
-    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+    if (wantsJson) {
       return res.json({ success: true, message, codigo_visita });
     }
 
-    return res.send(message);
+    return res.redirect(303, `/success?code=${encodeURIComponent(codigo_visita)}`);
   } catch (err) {
     console.error(err);
     const message = `Error al registrar la visita: ${err.message}`;
-    if (req.headers.accept && req.headers.accept.includes('application/json')) {
-      return res.status(500).json({ success: false, message });
-    }
-    res.status(500).send(message);
+    return wantsJson
+      ? res.status(500).json({ success: false, message })
+      : res.status(500).send(message);
   }
 });
 

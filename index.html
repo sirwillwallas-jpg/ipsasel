@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Visitas</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
@@ -72,14 +72,23 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="codigo_ot">Código OT (Opcional)</label>
-                <input type="text" id="codigo_ot" name="codigo_ot" placeholder="Código de orden de trabajo">
+            <div class="form-group checkbox-group full-width">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="toggle-ot" name="toggle_ot">
+                    Añadir Código OT
+                </label>
             </div>
 
-            <div class="form-group full-width">
-                <label for="detalle_ot">Detalle OT (Opcional)</label>
-                <textarea id="detalle_ot" name="detalle_ot" rows="2" placeholder="Detalle de la orden de trabajo"></textarea>
+            <div id="ot-fields" class="hidden-fields">
+                <div class="form-group">
+                    <label for="codigo_ot">Código OT (Opcional)</label>
+                    <input type="text" id="codigo_ot" name="codigo_ot" placeholder="Código de orden de trabajo">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="detalle_ot">Detalle OT (Opcional)</label>
+                    <textarea id="detalle_ot" name="detalle_ot" rows="2" placeholder="Detalle de la orden de trabajo"></textarea>
+                </div>
             </div>
 
             <button type="submit" class="btn-submit full-width">Registrar Visita</button>
@@ -123,21 +132,36 @@ form.addEventListener('submit', async (event) => {
     });
 
     const result = await response.json().catch(() => ({ success: response.ok, message: response.statusText }));
-    const card = createMessageCard(result.message || 'Solicitud procesada', response.ok && result.success !== false);
-    messageContainer.appendChild(card);
-
     if (response.ok && result.success) {
+      const successCard = createMessageCard(result.message || 'Solicitud procesada', true);
+      messageContainer.appendChild(successCard);
       window.location.href = `/success?code=${encodeURIComponent(result.codigo_visita)}`;
       return;
     }
 
-    const card = createMessageCard(result.message || 'Ocurrió un error.', false);
-    messageContainer.appendChild(card);
+    const errorCard = createMessageCard(result.message || 'Ocurrió un error.', false);
+    messageContainer.appendChild(errorCard);
   } catch (err) {
     const card = createMessageCard('No se pudo conectar con el servidor. Intenta de nuevo.', false);
     messageContainer.appendChild(card);
   }
 });
+  const otToggle = document.getElementById('toggle-ot');
+  const otFields = document.getElementById('ot-fields');
+  const otCode = document.getElementById('codigo_ot');
+  const otDetail = document.getElementById('detalle_ot');
+
+  otToggle.addEventListener('change', () => {
+    if (otToggle.checked) {
+      otFields.style.display = 'grid';
+    } else {
+      otFields.style.display = 'none';
+      otCode.value = '';
+      otDetail.value = '';
+    }
+  });
+
+  otFields.style.display = 'none';
 </script>
 
 </body>
