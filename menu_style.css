@@ -1,0 +1,135 @@
+/* Variables de colores para mantener consistencia */
+:root {
+    --sidebar-bg: #1e293b; /* Azul oscuro institucional */
+    --sidebar-text: #f8fafc;
+    --section-title: #94a3b8;
+    --btn-bg: transparent;
+    --btn-hover: #3b82f6;
+    --main-bg: #f1f5f9;
+}
+
+/* Reseteo básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--main-bg);
+}
+
+/* Layout del Dashboard */
+.dashboard-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* --- ESTILOS DE LA BARRA LATERAL --- */
+.sidebar {
+    width: 280px;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar-header {
+    padding: 25px 20px;
+    text-align: center;
+    border-bottom: 1px solid #334155;
+}
+
+.logo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%; /* Hace el logo circular */
+    object-fit: cover;
+    margin-bottom: 15px;
+    border: 3px solid #cbd5e1;
+}
+
+.sidebar-header h2 {
+    font-size: 1rem;
+    line-height: 1.4;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+/* Secciones del Menú */
+.sidebar-menu {
+    padding: 20px;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.menu-section {
+    margin-bottom: 25px;
+}
+
+.menu-section h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: var(--section-title);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    padding-left: 10px;
+}
+
+.menu-list {
+    list-style: none;
+}
+
+/* Botones del Menú */
+.menu-btn {
+    width: 100%;
+    background-color: var(--btn-bg);
+    color: var(--sidebar-text);
+    border: none;
+    padding: 12px 15px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.menu-btn:hover {
+    background-color: var(--btn-hover);
+    color: white;
+}
+
+.menu-btn:active {
+    transform: scale(0.98);
+}
+
+/* --- ESTILOS DEL ÁREA DE CONTENIDO --- */
+.main-content {
+    flex-grow: 1;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.welcome-card {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 100%;
+    max-width: 600px;
+}
+
+.welcome-card h1 {
+    color: #0f172a;
+    margin-bottom: 10px;
+}
+
+.welcome-card p {
+    color: #64748b;
+}

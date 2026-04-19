@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Visitas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="form-container">
+    <div class="logo-container">
+        <img src="https://tse1.mm.bing.net/th/id/OIP.NRy8XdtFHlStQXftZcF2ywAAAA?rs=1&pid=ImgDetMain&o=7&rm=3" alt="Logotipo de la Empresa">
+    </div>
+
+    <h2>Registro de Control de Visitas</h2>
+    <form action="#" method="POST">
+        <div class="grid-layout">
+            
+            <div class="form-group">
+                <label for="fecha">Fecha</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+
+            <div class="form-group">
+                <label for="hora">Hora de Ingreso</label>
+                <input type="time" id="hora" name="hora" required>
+            </div>
+
+            <div class="form-group">
+                <label for="nombre">Nombre Completo</label>
+                <input type="text" id="nombre" name="nombre" placeholder="Ej. Juan Pérez" required>
+            </div>
+
+            <div class="form-group">
+                <label for="cedula">Cédula / ID</label>
+                <input type="text" id="cedula" name="cedula" placeholder="Documento de identidad" required>
+            </div>
+
+            <div class="form-group">
+                <label for="telefono">Teléfono</label>
+                <input type="tel" id="telefono" name="telefono" placeholder="Ej. +58 412..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="entidad">Entidad Laboral (Empresa)</label>
+                <input type="text" id="entidad" name="entidad" placeholder="De donde proviene">
+            </div>
+
+            <div class="form-group">
+                <label for="tipo_visita">Tipo de Visita</label>
+                <select id="tipo_visita" name="tipo_visita">
+                    <option value="tecnica">Técnica</option>
+                    <option value="administrativa">Administrativa</option>
+                    <option value="comercial">Comercial</option>
+                    <option value="personal">Personal</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="estatus">Estatus de Visita</label>
+                <select id="estatus" name="estatus">
+                    <option value="programada">Programada</option>
+                    <option value="no_programada">No Programada</option>
+                    <option value="emergencia">Emergencia</option>
+                </select>
+            </div>
+
+            <div class="form-group full-width">
+                <label for="funcionario">Funcionario que Recibe</label>
+                <input type="text" id="funcionario" name="funcionario" placeholder="Nombre del responsable interno" required>
+            </div>
+
+            <div class="form-group full-width">
+                <label for="motivo">Motivo de la Visita</label>
+                <textarea id="motivo" name="motivo" rows="3" placeholder="Describa brevemente el propósito de su visita..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-submit full-width">Registrar Visita</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>
+
+
+
