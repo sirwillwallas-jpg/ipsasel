@@ -73,6 +73,10 @@ app.get('/2index', (req, res) => {
   res.sendFile(path.join(__dirname, '2index.html'));
 });
 
+app.get('/success', (req, res) => {
+  res.sendFile(path.join(__dirname, 'success.html'));
+});
+
 // Ruta para registrar visita
 app.post('/register-visit', async (req, res) => {
   const {

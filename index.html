@@ -110,15 +110,16 @@ form.addEventListener('submit', async (event) => {
   messageContainer.innerHTML = '';
 
   const formData = new FormData(form);
-  const data = Object.fromEntries(formData.entries());
+  const body = new URLSearchParams(formData);
 
   try {
     const response = await fetch(form.action, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: formData
+      body
     });
 
     const result = await response.json().catch(() => ({ success: response.ok, message: response.statusText }));
@@ -126,8 +127,12 @@ form.addEventListener('submit', async (event) => {
     messageContainer.appendChild(card);
 
     if (response.ok && result.success) {
-      form.reset();
+      window.location.href = `/success?code=${encodeURIComponent(result.codigo_visita)}`;
+      return;
     }
+
+    const card = createMessageCard(result.message || 'Ocurrió un error.', false);
+    messageContainer.appendChild(card);
   } catch (err) {
     const card = createMessageCard('No se pudo conectar con el servidor. Intenta de nuevo.', false);
     messageContainer.appendChild(card);
