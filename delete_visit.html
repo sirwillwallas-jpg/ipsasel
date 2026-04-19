@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminar Visita - IPSASEL</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="form-container">
+    <h2>Eliminar Registro de Visita</h2>
+    <p class="subtitle">Usa el código de visita para buscar y eliminar el registro. Esta acción es irreversible.</p>
+    <p class="warning-text">⚠️ Por seguridad, el registro se eliminará permanentemente.</p>
+
+    <form action="/delete-visit" method="POST">
+        <div class="form-group full-width">
+            <label for="codigo_visita">Código de la Visita</label>
+            <input type="text" id="codigo_visita" name="codigo_visita" placeholder="Ej. VIS-1684096828000" required>
+        </div>
+
+        <button type="submit" class="btn-delete full-width">ELIMINAR VISITA</button>
+    </form>
+
+    <div class="back-row">
+        <a href="/menu" class="btn-secondary back-btn">Volver al Menú Principal</a>
+    </div>
+</div>
+
+</body>
+</html>

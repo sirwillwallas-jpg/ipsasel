@@ -69,6 +69,53 @@ app.get('/modify-visit', (req, res) => {
   res.sendFile(path.join(__dirname, 'modify_visit.html'));
 });
 
+app.get('/delete-visit', (req, res) => {
+  res.sendFile(path.join(__dirname, 'delete_visit.html'));
+});
+
+app.post('/delete-visit', async (req, res) => {
+  const { codigo_visita } = req.body;
+  if (!codigo_visita) {
+    return res.status(400).send(`
+      <script>
+        alert('Debe indicar el código de visita.');
+        window.location.href = '/delete-visit';
+      </script>
+    `);
+  }
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM VISITAS WHERE codigo_visita = $1 RETURNING *',
+      [codigo_visita]
+    );
+
+    if (result.rowCount > 0) {
+      return res.send(`
+        <script>
+          alert('Visita ${codigo_visita} eliminada con éxito.');
+          window.location.href = '/menu';
+        </script>
+      `);
+    }
+
+    return res.send(`
+      <script>
+        alert('No se encontró ninguna visita con el código: ${codigo_visita}');
+        window.location.href = '/delete-visit';
+      </script>
+    `);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send(`
+      <script>
+        alert('Error interno al intentar eliminar el registro.');
+        window.location.href = '/delete-visit';
+      </script>
+    `);
+  }
+});
+
 app.get('/menu', (req, res) => {
   res.sendFile(path.join(__dirname, 'menu_index.html'));
 });

@@ -200,6 +200,29 @@ textarea:focus {
     padding: 12px 20px;
 }
 
+.btn-delete {
+    background: linear-gradient(135deg, #dc2626, #f87171);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 16px 20px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn-delete:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 30px rgba(220, 38, 38, 0.18);
+}
+
+.warning-text {
+    color: #b91c1c;
+    font-size: 0.95rem;
+    margin-top: 6px;
+    margin-bottom: 20px;
+}
+
 .search-inline {
     display: flex;
     gap: 12px;
