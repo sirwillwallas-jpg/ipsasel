@@ -22,16 +22,33 @@ const pool = new Pool({
 const ALLOWED_TIPOS = ['Técnica', 'Comercial', 'Soporte', 'Inspección', 'Personal', 'Administrativa'];
 const ALLOWED_ESTATUS = ['Planificada', 'En Curso', 'Completada', 'Revisada', 'Cancelada', 'No Programada', 'Emergencia'];
 const ALLOWED_TIPO_CONTACTO = ['Individual', 'Empresa', 'Organización'];
+let supportsSplitContactFields = false;
 
-async function ensureContactColumns() {
-  await pool.query('ALTER TABLE CONTACTOS ADD COLUMN IF NOT EXISTS nombre_completo VARCHAR(255)');
-  await pool.query('ALTER TABLE CONTACTOS ADD COLUMN IF NOT EXISTS entidad VARCHAR(255)');
-  await pool.query(`
-    UPDATE CONTACTOS
-    SET nombre_completo = COALESCE(nombre_completo, CASE WHEN tipo_contacto = 'Individual' THEN nombre_entidad ELSE NULL END),
-        entidad = COALESCE(entidad, CASE WHEN tipo_contacto <> 'Individual' THEN nombre_entidad ELSE NULL END)
-    WHERE nombre_completo IS NULL OR entidad IS NULL
+async function detectContactColumns() {
+  const result = await pool.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'contactos'
+      AND column_name IN ('nombre_completo', 'entidad')
   `);
+
+  const names = new Set(result.rows.map((row) => row.column_name));
+  supportsSplitContactFields = names.has('nombre_completo') && names.has('entidad');
+}
+
+function contactSelectSql(alias = 'c') {
+  if (supportsSplitContactFields) {
+    return `${alias}.nombre_completo, ${alias}.entidad, COALESCE(NULLIF(${alias}.entidad, ''), NULLIF(${alias}.nombre_completo, ''), ${alias}.nombre_entidad) AS nombre_entidad`;
+  }
+  return `NULL::varchar AS nombre_completo, NULL::varchar AS entidad, ${alias}.nombre_entidad AS nombre_entidad`;
+}
+
+function contactSearchSql(alias = 'c') {
+  if (supportsSplitContactFields) {
+    return `COALESCE(${alias}.nombre_completo, '') ILIKE $1 OR COALESCE(${alias}.entidad, '') ILIKE $1 OR COALESCE(${alias}.nombre_entidad, '') ILIKE $1`;
+  }
+  return `COALESCE(${alias}.nombre_entidad, '') ILIKE $1`;
 }
 
 function normalizeContactData(body) {
@@ -212,15 +229,27 @@ app.post('/register-visit', async (req, res) => {
     let id_contacto;
     if (contactoResult.rows.length > 0) {
       id_contacto = contactoResult.rows[0].id_contacto;
-      await pool.query(
-        'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
-        [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
-      );
+      if (supportsSplitContactFields) {
+        await pool.query(
+          'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
+          [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
+        );
+      } else {
+        await pool.query(
+          'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
+          [contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
+        );
+      }
     } else {
-      const insertContacto = await pool.query(
-        'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
-        [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
-      );
+      const insertContacto = supportsSplitContactFields
+        ? await pool.query(
+          'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
+          [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
+        )
+        : await pool.query(
+          'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
+          [cedula_rif, contactData.nombre_entidad, telefono, tipo_contacto]
+        );
       id_contacto = insertContacto.rows[0].id_contacto;
     }
 
@@ -276,8 +305,7 @@ app.get('/api/visitas', async (req, res) => {
     const searchTerm = `%${codigo_visita.trim()}%`;
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_completo, c.entidad,
-             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             ${contactSelectSql('c')},
              c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
@@ -285,9 +313,7 @@ app.get('/api/visitas', async (req, res) => {
       LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
       WHERE v.codigo_visita ILIKE $1
          OR c.cedula_rif ILIKE $1
-         OR COALESCE(c.nombre_completo, '') ILIKE $1
-         OR COALESCE(c.entidad, '') ILIKE $1
-         OR COALESCE(c.nombre_entidad, '') ILIKE $1
+         OR ${contactSearchSql('c')}
       ORDER BY v.fecha DESC, v.hora DESC
       LIMIT 20
     `, [searchTerm]);
@@ -304,8 +330,7 @@ app.get('/visitas', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_completo, c.entidad,
-             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             ${contactSelectSql('c')},
              c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
@@ -326,8 +351,7 @@ app.get('/api/visitas-del-dia', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_completo, c.entidad,
-             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             ${contactSelectSql('c')},
              c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
@@ -358,8 +382,7 @@ app.get('/api/visitas-por-fecha', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_completo, c.entidad,
-             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             ${contactSelectSql('c')},
              c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
@@ -383,8 +406,7 @@ app.get('/api/visitas-eventos', async (req, res) => {
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
              TO_CHAR(v.fecha, 'YYYY-MM-DD') AS fecha_iso,
              TO_CHAR(v.hora, 'HH24:MI:SS') AS hora_iso,
-             c.nombre_completo, c.entidad,
-             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+            ${contactSelectSql('c')},
              c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
@@ -480,15 +502,27 @@ app.post('/modify-visit', async (req, res) => {
     let id_contacto;
     if (contactoResult.rows.length > 0) {
       id_contacto = contactoResult.rows[0].id_contacto;
-      await pool.query(
-        'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
-        [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
-      );
+      if (supportsSplitContactFields) {
+        await pool.query(
+          'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
+          [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
+        );
+      } else {
+        await pool.query(
+          'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
+          [contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
+        );
+      }
     } else {
-      const insertContacto = await pool.query(
-        'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
-        [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
-      );
+      const insertContacto = supportsSplitContactFields
+        ? await pool.query(
+          'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
+          [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
+        )
+        : await pool.query(
+          'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
+          [cedula_rif, contactData.nombre_entidad, telefono, tipo_contacto]
+        );
       id_contacto = insertContacto.rows[0].id_contacto;
     }
 
@@ -545,7 +579,7 @@ app.post('/login', async (req, res) => {
 // Iniciar servidor
 async function startServer() {
   try {
-    await ensureContactColumns();
+    await detectContactColumns();
     app.listen(port, () => {
       console.log(`Servidor corriendo en http://localhost:${port}`);
     });
