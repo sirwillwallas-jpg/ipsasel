@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "IPSASEL Viewer",
+    "slug": "ipsasel-viewer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#f3f7ff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1f2937"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
