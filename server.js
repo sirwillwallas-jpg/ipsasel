@@ -128,6 +128,10 @@ app.get('/success', (req, res) => {
   res.sendFile(path.join(__dirname, 'success.html'));
 });
 
+app.get('/visitas-del-dia', (req, res) => {
+  res.sendFile(path.join(__dirname, 'visitas_del_dia.html'));
+});
+
 // Ruta para registrar visita
 app.post('/register-visit', async (req, res) => {
   const {
@@ -263,6 +267,27 @@ app.get('/visitas', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Error al obtener visitas');
+  }
+});
+
+// Listar visitas de la fecha actual
+app.get('/api/visitas-del-dia', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
+             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             o.codigo_ot, o.detalle AS detalle_ot
+      FROM VISITAS v
+      LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
+      LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
+      WHERE v.fecha = CURRENT_DATE
+      ORDER BY v.hora DESC
+    `);
+
+    res.json({ success: true, visits: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Error al obtener visitas del día' });
   }
 });
 

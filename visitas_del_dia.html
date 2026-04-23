@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitas del día - INPSASEL</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: #ffffff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        thead {
+            background: #eff6ff;
+        }
+
+        th,
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+            text-align: left;
+            vertical-align: top;
+            font-size: 0.95rem;
+        }
+
+        th {
+            color: #1e3a8a;
+            font-weight: 700;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .status-row {
+            margin-top: 12px;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        .empty-box {
+            margin-top: 18px;
+            padding: 20px;
+            border-radius: 14px;
+            background: #f8fafc;
+            border: 1px dashed rgba(148, 163, 184, 0.6);
+            color: #475569;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .error-box {
+            margin-top: 18px;
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+            font-weight: 600;
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container" style="width:min(100%,1200px)">
+        <div class="actions-row">
+            <a href="/menu" class="btn-secondary back-btn">Volver al menú</a>
+            <button id="reloadBtn" class="btn-secondary back-btn" type="button">Actualizar</button>
+        </div>
+
+        <h2>Visitas del día</h2>
+        <p class="subtitle">Listado de visitas registradas para la fecha actual.</p>
+
+        <div id="status" class="status-row">Cargando visitas...</div>
+        <div id="errorBox" class="error-box" style="display:none"></div>
+        <div id="emptyBox" class="empty-box" style="display:none">No hay visitas registradas para hoy.</div>
+
+        <div id="tableWrapper" class="table-wrapper" style="display:none">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Hora</th>
+                        <th>Tipo</th>
+                        <th>Estatus</th>
+                        <th>Entidad</th>
+                        <th>Cédula/RIF</th>
+                        <th>Teléfono</th>
+                        <th>Orden de trabajo</th>
+                        <th>Detalle OT</th>
+                    </tr>
+                </thead>
+                <tbody id="visitasBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function safeText(value) {
+            return (value ?? '').toString();
+        }
+
+        function renderRows(visits) {
+            const tbody = document.getElementById('visitasBody');
+            tbody.innerHTML = '';
+
+            visits.forEach((visit) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${safeText(visit.codigo_visita)}</td>
+                    <td>${safeText(visit.hora).slice(0, 5)}</td>
+                    <td>${safeText(visit.tipo_visita)}</td>
+                    <td>${safeText(visit.estatus)}</td>
+                    <td>${safeText(visit.nombre_entidad)}</td>
+                    <td>${safeText(visit.cedula_rif)}</td>
+                    <td>${safeText(visit.telefono)}</td>
+                    <td>${safeText(visit.codigo_ot)}</td>
+                    <td>${safeText(visit.detalle_ot)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadVisitasDelDia() {
+            const status = document.getElementById('status');
+            const errorBox = document.getElementById('errorBox');
+            const emptyBox = document.getElementById('emptyBox');
+            const tableWrapper = document.getElementById('tableWrapper');
+
+            status.textContent = 'Cargando visitas...';
+            errorBox.style.display = 'none';
+            emptyBox.style.display = 'none';
+            tableWrapper.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/visitas-del-dia', {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error('No se pudo consultar la información.');
+                }
+
+                const data = await response.json();
+                const visits = Array.isArray(data.visits) ? data.visits : [];
+
+                if (visits.length === 0) {
+                    status.textContent = 'Sin resultados para hoy.';
+                    emptyBox.style.display = 'block';
+                    return;
+                }
+
+                renderRows(visits);
+                status.textContent = `Total de visitas de hoy: ${visits.length}`;
+                tableWrapper.style.display = 'block';
+            } catch (error) {
+                status.textContent = 'Error al cargar visitas del día.';
+                errorBox.textContent = error.message || 'Error no esperado.';
+                errorBox.style.display = 'block';
+            }
+        }
+
+        document.getElementById('reloadBtn').addEventListener('click', loadVisitasDelDia);
+        loadVisitasDelDia();
+    </script>
+</body>
+</html>
