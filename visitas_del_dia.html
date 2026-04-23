@@ -247,6 +247,7 @@
                                 <th>Hora</th>
                                 <th>Tipo</th>
                                 <th>Estatus</th>
+                                <th>Nombre completo</th>
                                 <th>Entidad</th>
                                 <th>Cédula/RIF</th>
                                 <th>Teléfono</th>
@@ -291,7 +292,8 @@
                 ['Hora', eventData.hora],
                 ['Tipo de visita', eventData.tipo_visita],
                 ['Estatus', eventData.estatus],
-                ['Entidad', eventData.nombre_entidad],
+                ['Nombre completo', eventData.nombre_completo || 'No aplica'],
+                ['Entidad', eventData.entidad || 'No aplica'],
                 ['Cédula/RIF', eventData.cedula_rif],
                 ['Teléfono', eventData.telefono],
                 ['Tipo de contacto', eventData.tipo_contacto],
@@ -344,6 +346,7 @@
                     <td>${safeText(visit.hora).slice(0, 5)}</td>
                     <td>${safeText(visit.tipo_visita)}</td>
                     <td>${safeText(visit.estatus)}</td>
+                    <td>${safeText(visit.nombre_completo)}</td>
                     <td>${safeText(visit.nombre_entidad)}</td>
                     <td>${safeText(visit.cedula_rif)}</td>
                     <td>${safeText(visit.telefono)}</td>
@@ -443,6 +446,8 @@
                             hora: props.hora || '',
                             tipo_visita: props.tipo_visita || '',
                             estatus: props.estatus || '',
+                            nombre_completo: props.nombre_completo || '',
+                            entidad: props.entidad || '',
                             nombre_entidad: props.nombre_entidad || '',
                             cedula_rif: props.cedula_rif || '',
                             telefono: props.telefono || '',

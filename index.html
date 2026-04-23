@@ -29,8 +29,13 @@
             </div>
 
             <div class="form-group">
-                <label for="nombre_entidad">Nombre Completo / Entidad</label>
-                <input type="text" id="nombre_entidad" name="nombre_entidad" placeholder="Ej. Juan Pérez o Empresa XYZ" required>
+              <label for="nombre_completo">Nombre Completo</label>
+              <input type="text" id="nombre_completo" name="nombre_completo" placeholder="Ej. Juan Pérez">
+            </div>
+
+            <div class="form-group">
+              <label for="entidad">Entidad</label>
+              <input type="text" id="entidad" name="entidad" placeholder="Ej. Empresa XYZ">
             </div>
 
             <div class="form-group">
@@ -102,6 +107,20 @@
 <script>
 const form = document.getElementById('visit-form');
 const messageContainer = document.getElementById('message-container');
+const tipoContactoSelect = document.getElementById('tipo_contacto');
+const nombreCompletoInput = document.getElementById('nombre_completo');
+const entidadInput = document.getElementById('entidad');
+
+function updateContactRequirements() {
+  const tipoContacto = tipoContactoSelect.value;
+  if (tipoContacto === 'Individual') {
+    nombreCompletoInput.required = true;
+    entidadInput.required = false;
+  } else {
+    nombreCompletoInput.required = false;
+    entidadInput.required = true;
+  }
+}
 
 function createMessageCard(message, success = true) {
   const card = document.createElement('div');
@@ -165,6 +184,9 @@ form.addEventListener('submit', async (event) => {
   });
 
   otFields.style.display = 'none';
+
+  tipoContactoSelect.addEventListener('change', updateContactRequirements);
+  updateContactRequirements();
 </script>
 
 </body>

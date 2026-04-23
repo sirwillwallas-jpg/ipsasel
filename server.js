@@ -23,9 +23,43 @@ const ALLOWED_TIPOS = ['Técnica', 'Comercial', 'Soporte', 'Inspección', 'Perso
 const ALLOWED_ESTATUS = ['Planificada', 'En Curso', 'Completada', 'Revisada', 'Cancelada', 'No Programada', 'Emergencia'];
 const ALLOWED_TIPO_CONTACTO = ['Individual', 'Empresa', 'Organización'];
 
+async function ensureContactColumns() {
+  await pool.query('ALTER TABLE CONTACTOS ADD COLUMN IF NOT EXISTS nombre_completo VARCHAR(255)');
+  await pool.query('ALTER TABLE CONTACTOS ADD COLUMN IF NOT EXISTS entidad VARCHAR(255)');
+  await pool.query(`
+    UPDATE CONTACTOS
+    SET nombre_completo = COALESCE(nombre_completo, CASE WHEN tipo_contacto = 'Individual' THEN nombre_entidad ELSE NULL END),
+        entidad = COALESCE(entidad, CASE WHEN tipo_contacto <> 'Individual' THEN nombre_entidad ELSE NULL END)
+    WHERE nombre_completo IS NULL OR entidad IS NULL
+  `);
+}
+
+function normalizeContactData(body) {
+  const tipoContacto = (body.tipo_contacto || '').trim();
+  const legacyNombreEntidad = (body.nombre_entidad || '').trim();
+  let nombreCompleto = (body.nombre_completo || '').trim();
+  let entidad = (body.entidad || '').trim();
+
+  if (!nombreCompleto && tipoContacto === 'Individual') {
+    nombreCompleto = legacyNombreEntidad;
+  }
+
+  if (!entidad && tipoContacto && tipoContacto !== 'Individual') {
+    entidad = legacyNombreEntidad;
+  }
+
+  const nombreEntidad = entidad || nombreCompleto || legacyNombreEntidad;
+  return {
+    nombre_completo: nombreCompleto,
+    entidad,
+    nombre_entidad: nombreEntidad,
+  };
+}
+
 function validateVisitBody(body) {
   const errors = [];
   const { fecha, hora, tipo_visita, estatus, cedula_rif, nombre_entidad, telefono, tipo_contacto } = body;
+  const contactData = normalizeContactData(body);
 
   if (!fecha) errors.push('Fecha es obligatoria.');
   if (!hora) errors.push('Hora es obligatoria.');
@@ -34,7 +68,15 @@ function validateVisitBody(body) {
   if (!estatus) errors.push('Estatus es obligatorio.');
   if (estatus && !ALLOWED_ESTATUS.includes(estatus)) errors.push(`Estatus inválido. Valores válidos: ${ALLOWED_ESTATUS.join(', ')}.`);
   if (!cedula_rif) errors.push('Cédula o RIF es obligatorio.');
-  if (!nombre_entidad) errors.push('Nombre o entidad es obligatorio.');
+  if (!contactData.nombre_completo && !contactData.entidad && !nombre_entidad) {
+    errors.push('Debe indicar Nombre completo o Entidad.');
+  }
+  if (tipo_contacto === 'Individual' && !contactData.nombre_completo) {
+    errors.push('Nombre completo es obligatorio para tipo de contacto Individual.');
+  }
+  if (tipo_contacto && tipo_contacto !== 'Individual' && !contactData.entidad) {
+    errors.push('Entidad es obligatoria para tipo de contacto Empresa u Organización.');
+  }
   if (!telefono) errors.push('Teléfono es obligatorio.');
   if (!tipo_contacto) errors.push('Tipo de contacto es obligatorio.');
   if (tipo_contacto && !ALLOWED_TIPO_CONTACTO.includes(tipo_contacto)) errors.push(`Tipo de contacto inválido. Valores válidos: ${ALLOWED_TIPO_CONTACTO.join(', ')}.`);
@@ -140,12 +182,15 @@ app.post('/register-visit', async (req, res) => {
     tipo_visita,
     estatus,
     cedula_rif,
+    nombre_completo,
+    entidad,
     nombre_entidad,
     telefono,
     tipo_contacto,
     codigo_ot,
     detalle_ot
   } = req.body;
+  const contactData = normalizeContactData({ nombre_completo, entidad, nombre_entidad, tipo_contacto });
 
   const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   const errors = validateVisitBody(req.body);
@@ -168,13 +213,13 @@ app.post('/register-visit', async (req, res) => {
     if (contactoResult.rows.length > 0) {
       id_contacto = contactoResult.rows[0].id_contacto;
       await pool.query(
-        'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
-        [nombre_entidad, telefono, tipo_contacto, id_contacto]
+        'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
+        [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
       );
     } else {
       const insertContacto = await pool.query(
-        'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
-        [cedula_rif, nombre_entidad, telefono, tipo_contacto]
+        'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
+        [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
       );
       id_contacto = insertContacto.rows[0].id_contacto;
     }
@@ -231,14 +276,18 @@ app.get('/api/visitas', async (req, res) => {
     const searchTerm = `%${codigo_visita.trim()}%`;
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             c.nombre_completo, c.entidad,
+             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
       LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
       LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
       WHERE v.codigo_visita ILIKE $1
          OR c.cedula_rif ILIKE $1
-         OR c.nombre_entidad ILIKE $1
+         OR COALESCE(c.nombre_completo, '') ILIKE $1
+         OR COALESCE(c.entidad, '') ILIKE $1
+         OR COALESCE(c.nombre_entidad, '') ILIKE $1
       ORDER BY v.fecha DESC, v.hora DESC
       LIMIT 20
     `, [searchTerm]);
@@ -255,7 +304,9 @@ app.get('/visitas', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             c.nombre_completo, c.entidad,
+             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
       LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
@@ -275,7 +326,9 @@ app.get('/api/visitas-del-dia', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             c.nombre_completo, c.entidad,
+             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
       LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
@@ -305,7 +358,9 @@ app.get('/api/visitas-por-fecha', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
-             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             c.nombre_completo, c.entidad,
+             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
       LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
@@ -328,7 +383,9 @@ app.get('/api/visitas-eventos', async (req, res) => {
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
              TO_CHAR(v.fecha, 'YYYY-MM-DD') AS fecha_iso,
              TO_CHAR(v.hora, 'HH24:MI:SS') AS hora_iso,
-             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             c.nombre_completo, c.entidad,
+             COALESCE(NULLIF(c.entidad, ''), NULLIF(c.nombre_completo, ''), c.nombre_entidad) AS nombre_entidad,
+             c.cedula_rif, c.telefono, c.tipo_contacto,
              o.codigo_ot, o.detalle AS detalle_ot
       FROM VISITAS v
       LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
@@ -350,6 +407,8 @@ app.get('/api/visitas-eventos', async (req, res) => {
           codigo_visita: visit.codigo_visita,
           estatus: visit.estatus,
           cedula_rif: visit.cedula_rif || '',
+          nombre_completo: visit.nombre_completo || '',
+          entidad: visit.entidad || '',
           nombre_entidad: visit.nombre_entidad || '',
           telefono: visit.telefono || '',
           tipo_contacto: visit.tipo_contacto || '',
@@ -378,12 +437,15 @@ app.post('/modify-visit', async (req, res) => {
     tipo_visita,
     estatus,
     cedula_rif,
+    nombre_completo,
+    entidad,
     nombre_entidad,
     telefono,
     tipo_contacto,
     codigo_ot,
     detalle_ot
   } = req.body;
+  const contactData = normalizeContactData({ nombre_completo, entidad, nombre_entidad, tipo_contacto });
 
   const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   const errors = validateVisitBody(req.body);
@@ -419,13 +481,13 @@ app.post('/modify-visit', async (req, res) => {
     if (contactoResult.rows.length > 0) {
       id_contacto = contactoResult.rows[0].id_contacto;
       await pool.query(
-        'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
-        [nombre_entidad, telefono, tipo_contacto, id_contacto]
+        'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
+        [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
       );
     } else {
       const insertContacto = await pool.query(
-        'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
-        [cedula_rif, nombre_entidad, telefono, tipo_contacto]
+        'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
+        [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
       );
       id_contacto = insertContacto.rows[0].id_contacto;
     }
@@ -481,6 +543,16 @@ app.post('/login', async (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(port, () => {
-  console.log(`Servidor corriendo en http://localhost:${port}`);
-});
+async function startServer() {
+  try {
+    await ensureContactColumns();
+    app.listen(port, () => {
+      console.log(`Servidor corriendo en http://localhost:${port}`);
+    });
+  } catch (err) {
+    console.error('No se pudo iniciar el servidor:', err);
+    process.exit(1);
+  }
+}
+
+startServer();

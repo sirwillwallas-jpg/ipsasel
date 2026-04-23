@@ -42,8 +42,13 @@
             </div>
 
             <div class="form-group">
-                <label for="nombre_entidad">Nombre Completo / Entidad</label>
-                <input type="text" id="nombre_entidad" name="nombre_entidad" placeholder="Ej. Juan Pérez o Empresa XYZ" required>
+              <label for="nombre_completo">Nombre Completo</label>
+              <input type="text" id="nombre_completo" name="nombre_completo" placeholder="Ej. Juan Pérez">
+            </div>
+
+            <div class="form-group">
+              <label for="entidad">Entidad</label>
+              <input type="text" id="entidad" name="entidad" placeholder="Ej. Empresa XYZ">
             </div>
 
             <div class="form-group">
@@ -135,13 +140,28 @@ const searchButton = document.getElementById('search-button');
 const searchResults = document.getElementById('search-results');
 const modifyForm = document.getElementById('modify-form');
 const visitCodeInput = document.getElementById('codigo_visita');
+const tipoContactoSelect = document.getElementById('tipo_contacto');
+const nombreCompletoInput = document.getElementById('nombre_completo');
+const entidadInput = document.getElementById('entidad');
+
+function updateContactRequirements() {
+  const tipoContacto = tipoContactoSelect.value;
+  if (tipoContacto === 'Individual') {
+    nombreCompletoInput.required = true;
+    entidadInput.required = false;
+  } else {
+    nombreCompletoInput.required = false;
+    entidadInput.required = true;
+  }
+}
 
 function createSearchItem(visit) {
   const item = document.createElement('div');
   item.className = 'search-item';
+  const displayName = visit.entidad || visit.nombre_completo || visit.nombre_entidad || 'Sin nombre';
   item.innerHTML = `
     <div>
-      <strong>${visit.codigo_visita}</strong> — ${visit.nombre_entidad || 'Sin nombre'}<br>
+      <strong>${visit.codigo_visita}</strong> — ${displayName}<br>
       ${visit.fecha} ${visit.hora} • ${visit.tipo_visita} • ${visit.estatus}
     </div>
     <button class="btn-secondary">Editar</button>
@@ -167,12 +187,14 @@ function loadVisit(visit) {
   visitCodeInput.value = visit.codigo_visita;
   document.getElementById('fecha').value = visit.fecha;
   document.getElementById('hora').value = visit.hora;
-  document.getElementById('nombre_entidad').value = visit.nombre_entidad || '';
+  document.getElementById('nombre_completo').value = visit.nombre_completo || '';
+  document.getElementById('entidad').value = visit.entidad || '';
   document.getElementById('cedula_rif').value = visit.cedula_rif || '';
   document.getElementById('telefono').value = visit.telefono || '';
   document.getElementById('tipo_contacto').value = visit.tipo_contacto || 'Individual';
   document.getElementById('tipo_visita').value = visit.tipo_visita || 'Técnica';
   document.getElementById('estatus').value = visit.estatus || 'Planificada';
+  updateContactRequirements();
   if (visit.codigo_ot) {
     otToggle.checked = true;
     otFields.style.display = 'grid';
@@ -201,6 +223,9 @@ searchButton.addEventListener('click', async () => {
     searchResults.textContent = 'Error al consultar las visitas. Intenta de nuevo.';
   }
 });
+
+tipoContactoSelect.addEventListener('change', updateContactRequirements);
+updateContactRequirements();
 </script>
 
 </body>

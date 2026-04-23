@@ -32,6 +32,8 @@ CREATE TABLE ROLES (
 CREATE TABLE CONTACTOS (
     id_contacto SERIAL PRIMARY KEY,
     cedula_rif VARCHAR(20) NOT NULL,
+    nombre_completo VARCHAR(255),
+    entidad VARCHAR(255),
     nombre_entidad VARCHAR(255) NOT NULL,
     telefono VARCHAR(20),
     tipo_contacto tipo_contacto_enum NOT NULL
