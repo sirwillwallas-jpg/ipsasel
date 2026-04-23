@@ -117,6 +117,88 @@
             font-size: 0.9rem;
         }
 
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.58);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .wizard-modal {
+            width: min(100%, 700px);
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.38);
+            background: #ffffff;
+            box-shadow: 0 25px 80px rgba(15, 23, 42, 0.28);
+            overflow: hidden;
+        }
+
+        .wizard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 14px 16px;
+            background: #eff6ff;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.32);
+        }
+
+        .wizard-title {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #1e3a8a;
+        }
+
+        .wizard-close {
+            border: none;
+            background: #dbeafe;
+            color: #1e3a8a;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .wizard-content {
+            padding: 16px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .wizard-row {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 12px;
+            align-items: start;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+        }
+
+        .wizard-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .wizard-label {
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .wizard-value {
+            color: #0f172a;
+            word-break: break-word;
+        }
+
         @media (max-width: 1024px) {
             .calendar-shell {
                 grid-template-columns: 1fr;
@@ -124,6 +206,11 @@
 
             #calendar {
                 min-height: 520px;
+            }
+
+            .wizard-row {
+                grid-template-columns: 1fr;
+                gap: 6px;
             }
         }
     </style>
@@ -176,6 +263,16 @@
         </div>
     </div>
 
+    <div id="eventModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+        <div class="wizard-modal">
+            <div class="wizard-header">
+                <h4 id="wizardTitle" class="wizard-title">Detalle de visita</h4>
+                <button id="wizardCloseBtn" class="wizard-close" type="button" aria-label="Cerrar">&times;</button>
+            </div>
+            <div id="wizardContent" class="wizard-content"></div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales/es.global.min.js"></script>
     <script>
@@ -183,6 +280,38 @@
 
         function safeText(value) {
             return (value ?? '').toString();
+        }
+
+        function openEventModal(eventData) {
+            const modal = document.getElementById('eventModal');
+            const content = document.getElementById('wizardContent');
+            const rows = [
+                ['Código', eventData.codigo_visita],
+                ['Fecha', eventData.fecha],
+                ['Hora', eventData.hora],
+                ['Tipo de visita', eventData.tipo_visita],
+                ['Estatus', eventData.estatus],
+                ['Entidad', eventData.nombre_entidad],
+                ['Cédula/RIF', eventData.cedula_rif],
+                ['Teléfono', eventData.telefono],
+                ['Tipo de contacto', eventData.tipo_contacto],
+                ['Código OT', eventData.codigo_ot || 'No aplica'],
+                ['Detalle OT', eventData.detalle_ot || 'No aplica']
+            ];
+
+            content.innerHTML = rows.map(([label, value]) => `
+                <div class="wizard-row">
+                    <div class="wizard-label">${safeText(label)}</div>
+                    <div class="wizard-value">${safeText(value)}</div>
+                </div>
+            `).join('');
+
+            modal.classList.add('open');
+        }
+
+        function closeEventModal() {
+            const modal = document.getElementById('eventModal');
+            modal.classList.remove('open');
         }
 
         function getTodayISO() {
@@ -307,7 +436,20 @@
                         loadVisitasByDate(info.dateStr);
                     },
                     eventClick: function(info) {
-                        loadVisitasByDate(info.event.startStr.slice(0, 10));
+                        const props = info.event.extendedProps || {};
+                        openEventModal({
+                            codigo_visita: props.codigo_visita || info.event.id,
+                            fecha: props.fecha || info.event.startStr.slice(0, 10),
+                            hora: props.hora || '',
+                            tipo_visita: props.tipo_visita || '',
+                            estatus: props.estatus || '',
+                            nombre_entidad: props.nombre_entidad || '',
+                            cedula_rif: props.cedula_rif || '',
+                            telefono: props.telefono || '',
+                            tipo_contacto: props.tipo_contacto || '',
+                            codigo_ot: props.codigo_ot || '',
+                            detalle_ot: props.detalle_ot || ''
+                        });
                     }
                 });
 
@@ -330,6 +472,17 @@
         }
 
         document.getElementById('reloadBtn').addEventListener('click', refreshCalendar);
+        document.getElementById('wizardCloseBtn').addEventListener('click', closeEventModal);
+        document.getElementById('eventModal').addEventListener('click', function(event) {
+            if (event.target.id === 'eventModal') {
+                closeEventModal();
+            }
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeEventModal();
+            }
+        });
         initCalendar();
     </script>
 </body>
