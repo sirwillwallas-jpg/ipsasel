@@ -291,6 +291,84 @@ app.get('/api/visitas-del-dia', async (req, res) => {
   }
 });
 
+// Listar visitas por fecha puntual (AAAA-MM-DD)
+app.get('/api/visitas-por-fecha', async (req, res) => {
+  const { fecha } = req.query;
+
+  if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Parámetro fecha inválido. Use formato AAAA-MM-DD.'
+    });
+  }
+
+  try {
+    const result = await pool.query(`
+      SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
+             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             o.codigo_ot, o.detalle AS detalle_ot
+      FROM VISITAS v
+      LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
+      LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
+      WHERE v.fecha = $1::date
+      ORDER BY v.hora ASC
+    `, [fecha]);
+
+    return res.json({ success: true, visits: result.rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Error al obtener visitas por fecha' });
+  }
+});
+
+// Eventos para FullCalendar
+app.get('/api/visitas-eventos', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
+             TO_CHAR(v.fecha, 'YYYY-MM-DD') AS fecha_iso,
+             TO_CHAR(v.hora, 'HH24:MI:SS') AS hora_iso,
+             c.nombre_entidad, c.cedula_rif, c.telefono, c.tipo_contacto,
+             o.codigo_ot, o.detalle AS detalle_ot
+      FROM VISITAS v
+      LEFT JOIN CONTACTOS c ON v.id_contacto = c.id_contacto
+      LEFT JOIN ORDENES_TRABAJO o ON v.id_orden = o.id_orden
+      ORDER BY v.fecha ASC, v.hora ASC
+      LIMIT 1000
+    `);
+
+    const events = result.rows.map((visit) => {
+      const datePart = visit.fecha_iso;
+      const timePart = visit.hora_iso || '00:00:00';
+
+      return {
+        id: visit.codigo_visita,
+        title: `${visit.tipo_visita} - ${visit.nombre_entidad || 'Sin entidad'}`,
+        start: `${datePart}T${timePart}`,
+        allDay: false,
+        extendedProps: {
+          codigo_visita: visit.codigo_visita,
+          estatus: visit.estatus,
+          cedula_rif: visit.cedula_rif || '',
+          nombre_entidad: visit.nombre_entidad || '',
+          telefono: visit.telefono || '',
+          tipo_contacto: visit.tipo_contacto || '',
+          codigo_ot: visit.codigo_ot || '',
+          detalle_ot: visit.detalle_ot || '',
+          tipo_visita: visit.tipo_visita || '',
+          hora: String(visit.hora_iso || '').slice(0, 5),
+          fecha: visit.fecha_iso || ''
+        }
+      };
+    });
+
+    return res.json({ success: true, events });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Error al obtener eventos de visitas' });
+  }
+});
+
 // Ruta para modificar visita
 app.post('/modify-visit', async (req, res) => {
   const {

@@ -3,13 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visitas del día - INPSASEL</title>
+    <title>Calendario de visitas - INPSASEL</title>
     <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
     <style>
+        .calendar-shell {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            background: #ffffff;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        #calendar {
+            min-height: 640px;
+        }
+
+        .legend {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+
+        .selected-date {
+            margin-top: 4px;
+            margin-bottom: 10px;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+
         .table-wrapper {
             width: 100%;
             overflow-x: auto;
-            margin-top: 16px;
             border-radius: 16px;
             border: 1px solid rgba(148, 163, 184, 0.35);
             background: #ffffff;
@@ -76,6 +107,25 @@
             flex-wrap: wrap;
             margin-bottom: 8px;
         }
+
+        .event-tip {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #eff6ff;
+            color: #1e3a8a;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 1024px) {
+            .calendar-shell {
+                grid-template-columns: 1fr;
+            }
+
+            #calendar {
+                min-height: 520px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -85,36 +135,73 @@
             <button id="reloadBtn" class="btn-secondary back-btn" type="button">Actualizar</button>
         </div>
 
-        <h2>Visitas del día</h2>
-        <p class="subtitle">Listado de visitas registradas para la fecha actual.</p>
+        <h2>Calendario de visitas</h2>
+        <p class="subtitle">Visualiza visitas de hoy y otros días. Haz click sobre una fecha para ver su detalle.</p>
 
-        <div id="status" class="status-row">Cargando visitas...</div>
+        <div id="status" class="status-row">Cargando calendario...</div>
         <div id="errorBox" class="error-box" style="display:none"></div>
-        <div id="emptyBox" class="empty-box" style="display:none">No hay visitas registradas para hoy.</div>
 
-        <div id="tableWrapper" class="table-wrapper" style="display:none">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Hora</th>
-                        <th>Tipo</th>
-                        <th>Estatus</th>
-                        <th>Entidad</th>
-                        <th>Cédula/RIF</th>
-                        <th>Teléfono</th>
-                        <th>Orden de trabajo</th>
-                        <th>Detalle OT</th>
-                    </tr>
-                </thead>
-                <tbody id="visitasBody"></tbody>
-            </table>
+        <div class="calendar-shell">
+            <section class="panel">
+                <div id="calendar"></div>
+                <div class="legend">Click en una fecha para consultar sus visitas.</div>
+            </section>
+
+            <section class="panel">
+                <h3>Detalle por fecha</h3>
+                <div id="selectedDate" class="selected-date"></div>
+                <div id="emptyBox" class="empty-box" style="display:none">No hay visitas para la fecha seleccionada.</div>
+
+                <div id="tableWrapper" class="table-wrapper" style="display:none">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Estatus</th>
+                                <th>Entidad</th>
+                                <th>Cédula/RIF</th>
+                                <th>Teléfono</th>
+                                <th>Orden de trabajo</th>
+                                <th>Detalle OT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="visitasBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="event-tip">Tip: click en un evento para cargar automáticamente su fecha.</div>
+            </section>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales/es.global.min.js"></script>
     <script>
+        let calendar;
+
         function safeText(value) {
             return (value ?? '').toString();
+        }
+
+        function getTodayISO() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function formatDateLabel(isoDate) {
+            const [year, month, day] = isoDate.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            return date.toLocaleDateString('es-VE', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
         }
 
         function renderRows(visits) {
@@ -138,19 +225,21 @@
             });
         }
 
-        async function loadVisitasDelDia() {
+        async function loadVisitasByDate(isoDate) {
             const status = document.getElementById('status');
             const errorBox = document.getElementById('errorBox');
             const emptyBox = document.getElementById('emptyBox');
             const tableWrapper = document.getElementById('tableWrapper');
+            const selectedDate = document.getElementById('selectedDate');
 
-            status.textContent = 'Cargando visitas...';
+            status.textContent = 'Consultando visitas por fecha...';
             errorBox.style.display = 'none';
             emptyBox.style.display = 'none';
             tableWrapper.style.display = 'none';
+            selectedDate.textContent = `Fecha seleccionada: ${formatDateLabel(isoDate)}`;
 
             try {
-                const response = await fetch('/api/visitas-del-dia', {
+                const response = await fetch(`/api/visitas-por-fecha?fecha=${encodeURIComponent(isoDate)}`, {
                     headers: { 'Accept': 'application/json' }
                 });
 
@@ -162,23 +251,86 @@
                 const visits = Array.isArray(data.visits) ? data.visits : [];
 
                 if (visits.length === 0) {
-                    status.textContent = 'Sin resultados para hoy.';
+                    status.textContent = 'Sin resultados para la fecha seleccionada.';
                     emptyBox.style.display = 'block';
                     return;
                 }
 
                 renderRows(visits);
-                status.textContent = `Total de visitas de hoy: ${visits.length}`;
+                status.textContent = `Total de visitas para la fecha seleccionada: ${visits.length}`;
                 tableWrapper.style.display = 'block';
             } catch (error) {
-                status.textContent = 'Error al cargar visitas del día.';
+                status.textContent = 'Error al cargar visitas por fecha.';
                 errorBox.textContent = error.message || 'Error no esperado.';
                 errorBox.style.display = 'block';
             }
         }
 
-        document.getElementById('reloadBtn').addEventListener('click', loadVisitasDelDia);
-        loadVisitasDelDia();
+        async function loadCalendarEvents() {
+            const response = await fetch('/api/visitas-eventos', {
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error('No se pudieron cargar los eventos del calendario.');
+            }
+
+            const data = await response.json();
+            return Array.isArray(data.events) ? data.events : [];
+        }
+
+        async function initCalendar() {
+            const status = document.getElementById('status');
+            const errorBox = document.getElementById('errorBox');
+            const todayISO = getTodayISO();
+
+            try {
+                const events = await loadCalendarEvents();
+                calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+                    locale: 'es',
+                    initialView: 'dayGridMonth',
+                    height: 'auto',
+                    firstDay: 1,
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    },
+                    buttonText: {
+                        today: 'Hoy',
+                        month: 'Mes',
+                        week: 'Semana',
+                        day: 'Día'
+                    },
+                    events,
+                    dateClick: function(info) {
+                        loadVisitasByDate(info.dateStr);
+                    },
+                    eventClick: function(info) {
+                        loadVisitasByDate(info.event.startStr.slice(0, 10));
+                    }
+                });
+
+                calendar.render();
+                await loadVisitasByDate(todayISO);
+                status.textContent = `Calendario cargado. Eventos totales: ${events.length}`;
+                errorBox.style.display = 'none';
+            } catch (error) {
+                status.textContent = 'Error al cargar el calendario.';
+                errorBox.textContent = error.message || 'Error no esperado.';
+                errorBox.style.display = 'block';
+            }
+        }
+
+        async function refreshCalendar() {
+            if (calendar) {
+                calendar.destroy();
+            }
+            await initCalendar();
+        }
+
+        document.getElementById('reloadBtn').addEventListener('click', refreshCalendar);
+        initCalendar();
     </script>
 </body>
 </html>
