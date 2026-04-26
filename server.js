@@ -10,6 +10,15 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const DEFAULT_USER_ID = Number(process.env.DEFAULT_USER_ID || 1);
 
+function applyCorsHeaders(req, res) {
+  const requestOrigin = req.headers.origin;
+
+  res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+}
+
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
   user: process.env.DB_USER || 'tu_usuario',
@@ -106,6 +115,15 @@ function validateVisitBody(body) {
 }
 
 // Middleware
+app.use((req, res, next) => {
+  applyCorsHeaders(req, res);
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(session({
@@ -400,6 +418,24 @@ app.get('/api/visitas-por-fecha', async (req, res) => {
 });
 
 // Eventos para FullCalendar
+app.get('/api/visitas-calendario-resumen', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        TO_CHAR(v.fecha, 'YYYY-MM-DD') AS fecha,
+        COUNT(*)::int AS total
+      FROM VISITAS v
+      GROUP BY v.fecha
+      ORDER BY v.fecha ASC
+    `);
+
+    return res.json({ success: true, dates: result.rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Error al obtener el resumen del calendario' });
+  }
+});
+
 app.get('/api/visitas-eventos', async (req, res) => {
   try {
     const result = await pool.query(`
