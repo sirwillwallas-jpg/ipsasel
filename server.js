@@ -20,12 +20,23 @@ function applyCorsHeaders(req, res) {
 }
 
 // Configuración de la base de datos PostgreSQL
+const requiredDbVars = ['DB_USER', 'DB_HOST', 'DB_NAME', 'DB_PASSWORD'];
+const missingDbVars = requiredDbVars.filter((key) => !process.env[key]);
+if (missingDbVars.length > 0) {
+  console.warn(`Advertencia: faltan variables de entorno de base de datos: ${missingDbVars.join(', ')}.`);
+  console.warn('Esto hará que las rutas que usen PostgreSQL fallarán en tiempo de ejecución.');
+}
+
 const pool = new Pool({
-  user: process.env.DB_USER || 'tu_usuario',
-  host: process.env.DB_HOST || '127.0.0.1',
-  database: process.env.DB_NAME || 'ipsasel_db',
-  password: process.env.DB_PASSWORD || 'tu_password',
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
   port: Number(process.env.DB_PORT || 5432),
+});
+
+pool.on('error', (err) => {
+  console.error('PostgreSQL pool error:', err && err.message ? err.message : err);
 });
 
 function logStartupDbError(err) {
@@ -63,6 +74,7 @@ async function detectContactColumns() {
     supportsSplitContactFields = names.has('nombre_completo') && names.has('entidad');
   } catch (err) {
     console.error('Error detectando columnas de contactos (se asumirá compatibilidad legacy):', err && err.message ? err.message : err);
+    console.error('Verifique DB_HOST, DB_USER, DB_PASSWORD y que la base de datos esté accesible.');
     supportsSplitContactFields = false;
   }
 }
