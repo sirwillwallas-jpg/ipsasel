@@ -48,6 +48,8 @@ Backend en Node.js con Express y PostgreSQL para el registro y gestión de visit
 ## Ejecutar
 
 ```
+Start-Service postgresql-x64-17
+Get-Service postgresql-x64-17
 npm start
 ```
 
