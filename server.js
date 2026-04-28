@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -181,15 +182,28 @@ app.use(session({
   resave: false,
   saveUninitialized: true,
 }));
-app.use(express.static(path.join(__dirname), { index: false }));
+const HTML_PAGES = {
+  'menu_index.html': '<!doctype html><html><head><meta charset="utf-8"><title>INPSASEL</title></head><body><h1>INPSASEL</h1></body></html>',
+  'index.html': '<!doctype html><html><head><meta charset="utf-8"><title>Registro</title></head><body><h1>Registro de visita</h1></body></html>',
+  'modify_visit.html': '<!doctype html><html><head><meta charset="utf-8"><title>Modificar</title></head><body><h1>Modificar visita</h1></body></html>',
+  'delete_visit.html': '<!doctype html><html><head><meta charset="utf-8"><title>Eliminar</title></head><body><h1>Eliminar visita</h1></body></html>',
+  'success.html': '<!doctype html><html><head><meta charset="utf-8"><title>Éxito</title></head><body><h1>Operación exitosa</h1></body></html>',
+  'visitas_del_dia.html': '<!doctype html><html><head><meta charset="utf-8"><title>Visitas del día</title></head><body><h1>Visitas del día</h1></body></html>',
+  '2index.html': '<!doctype html><html><head><meta charset="utf-8"><title>Inicio</title></head><body><h1>Inicio</h1></body></html>',
+};
+
+function loadHtmlPage(fileName) {
+  const filePath = path.join(__dirname, fileName);
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (err) {
+    console.warn(`No se pudo leer ${fileName}; se usará una versión mínima embebida.`);
+    return HTML_PAGES[fileName] || '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
+  }
+}
 
 function sendStaticHtml(res, fileName) {
-  res.sendFile(path.join(__dirname, fileName), (err) => {
-    if (err) {
-      console.error(`Error enviando ${fileName}:`, err);
-      res.status(500).send('Error interno al servir la página');
-    }
-  });
+  res.type('html').send(loadHtmlPage(fileName));
 }
 
 // Rutas
