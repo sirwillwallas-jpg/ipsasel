@@ -73,8 +73,9 @@ async function detectContactColumns() {
     const names = new Set(result.rows.map((row) => row.column_name));
     supportsSplitContactFields = names.has('nombre_completo') && names.has('entidad');
   } catch (err) {
-    console.error('Error detectando columnas de contactos (se asumirá compatibilidad legacy):', err && err.message ? err.message : err);
-    console.error('Verifique DB_HOST, DB_USER, DB_PASSWORD y que la base de datos esté accesible.');
+    console.warn('Advertencia: no se pudo detectar columnas de contactos. Se asumirá modo legacy.');
+    console.warn('Detalles:', err && err.message ? err.message : err);
+    console.warn('Verifique DB_HOST, DB_USER, DB_PASSWORD y que la base de datos esté accesible.');
     supportsSplitContactFields = false;
   }
 }
@@ -480,6 +481,10 @@ app.get('/api/visitas-por-fecha', async (req, res) => {
   }
 });
 
+function isPostgresAuthError(err) {
+  return err && err.code === '28P01';
+}
+
 // Eventos para FullCalendar
 app.get('/api/visitas-calendario-resumen', async (req, res) => {
   try {
@@ -494,8 +499,8 @@ app.get('/api/visitas-calendario-resumen', async (req, res) => {
 
     return res.json({ success: true, dates: result.rows });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: 'Error al obtener el resumen del calendario' });
+    console.error('Error al obtener el resumen del calendario:', err && err.message ? err.message : err);
+    return res.json({ success: false, dates: [] });
   }
 });
 
@@ -544,8 +549,11 @@ app.get('/api/visitas-eventos', async (req, res) => {
 
     return res.json({ success: true, events });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: 'Error al obtener eventos de visitas' });
+    console.error('Error al obtener eventos de visitas:', err && err.message ? err.message : err);
+    if (isPostgresAuthError(err)) {
+      return res.json({ success: false, events: [] });
+    }
+    return res.json({ success: false, events: [] });
   }
 });
 
@@ -688,7 +696,6 @@ app.use((err, req, res, next) => {
 // Iniciar servidor
 async function startServer() {
   try {
-    await detectContactColumns();
     app.listen(port, () => {
       console.log(`Servidor corriendo en http://localhost:${port}`);
     });
