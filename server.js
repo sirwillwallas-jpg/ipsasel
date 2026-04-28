@@ -165,21 +165,30 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname), { index: false }));
 
+function sendStaticHtml(res, fileName) {
+  res.sendFile(path.join(__dirname, fileName), (err) => {
+    if (err) {
+      console.error(`Error enviando ${fileName}:`, err);
+      res.status(500).send('Error interno al servir la página');
+    }
+  });
+}
+
 // Rutas
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'menu_index.html'));
+  sendStaticHtml(res, 'menu_index.html');
 });
 
 app.get('/register-visit', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  sendStaticHtml(res, 'index.html');
 });
 
 app.get('/modify-visit', (req, res) => {
-  res.sendFile(path.join(__dirname, 'modify_visit.html'));
+  sendStaticHtml(res, 'modify_visit.html');
 });
 
 app.get('/delete-visit', (req, res) => {
-  res.sendFile(path.join(__dirname, 'delete_visit.html'));
+  sendStaticHtml(res, 'delete_visit.html');
 });
 
 app.post('/delete-visit', async (req, res) => {
@@ -226,19 +235,19 @@ app.post('/delete-visit', async (req, res) => {
 });
 
 app.get('/menu', (req, res) => {
-  res.sendFile(path.join(__dirname, 'menu_index.html'));
+  sendStaticHtml(res, 'menu_index.html');
 });
 
 app.get('/2index', (req, res) => {
-  res.sendFile(path.join(__dirname, '2index.html'));
+  sendStaticHtml(res, '2index.html');
 });
 
 app.get('/success', (req, res) => {
-  res.sendFile(path.join(__dirname, 'success.html'));
+  sendStaticHtml(res, 'success.html');
 });
 
 app.get('/visitas-del-dia', (req, res) => {
-  res.sendFile(path.join(__dirname, 'visitas_del_dia.html'));
+  sendStaticHtml(res, 'visitas_del_dia.html');
 });
 
 // Inicializar detección de columnas sólo en rutas que usan base de datos
