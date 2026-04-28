@@ -50,16 +50,21 @@ let supportsSplitContactFields = false;
 let detectColumnsPromise = null;
 
 async function detectContactColumns() {
-  const result = await pool.query(`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'contactos'
-      AND column_name IN ('nombre_completo', 'entidad')
-  `);
+  try {
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'contactos'
+        AND column_name IN ('nombre_completo', 'entidad')
+    `);
 
-  const names = new Set(result.rows.map((row) => row.column_name));
-  supportsSplitContactFields = names.has('nombre_completo') && names.has('entidad');
+    const names = new Set(result.rows.map((row) => row.column_name));
+    supportsSplitContactFields = names.has('nombre_completo') && names.has('entidad');
+  } catch (err) {
+    console.error('Error detectando columnas de contactos (se asumirá compatibilidad legacy):', err && err.message ? err.message : err);
+    supportsSplitContactFields = false;
+  }
 }
 
 function contactSelectSql(alias = 'c') {
@@ -79,8 +84,9 @@ function contactSearchSql(alias = 'c') {
 async function ensureContactColumns() {
   if (!detectColumnsPromise) {
     detectColumnsPromise = detectContactColumns().catch((err) => {
-      console.error('Error inicializando columnas de contacto:', err);
-      throw err;
+      console.error('Error inicializando columnas de contacto (continua en modo legacy):', err && err.message ? err.message : err);
+      supportsSplitContactFields = false;
+      // swallow the error so that the serverless function can continue operating
     });
   }
   return detectColumnsPromise;
