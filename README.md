@@ -72,3 +72,4 @@ El servidor correrá en `http://localhost:3000`.
 - Las contraseñas se hashean con bcrypt.
 - Ajusta las rutas y lógica según necesites.
 - Para producción, usa variables de entorno para credenciales.
+.
