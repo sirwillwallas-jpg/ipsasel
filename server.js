@@ -86,16 +86,6 @@ async function ensureContactColumns() {
   return detectColumnsPromise;
 }
 
-// Middleware
-app.use(async (req, res, next) => {
-  try {
-    await ensureContactColumns();
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
 function normalizeContactData(body) {
   const tipoContacto = (body.tipo_contacto || '').trim();
   const legacyNombreEntidad = (body.nombre_entidad || '').trim();
@@ -243,6 +233,16 @@ app.get('/success', (req, res) => {
 
 app.get('/visitas-del-dia', (req, res) => {
   res.sendFile(path.join(__dirname, 'visitas_del_dia.html'));
+});
+
+// Inicializar detección de columnas sólo en rutas que usan base de datos
+app.use(async (req, res, next) => {
+  try {
+    await ensureContactColumns();
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Ruta para registrar visita
@@ -646,6 +646,16 @@ app.post('/login', async (req, res) => {
     console.error(err);
     res.status(500).send('Error en login');
   }
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
+  if (wantsJson) {
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+  return res.status(500).send('Error interno del servidor');
 });
 
 // Iniciar servidor
