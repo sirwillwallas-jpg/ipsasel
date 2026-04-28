@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Debug Vercel Handler",
+			"type": "shell",
+			"command": "cd \"c:\\Users\\wilalr\\OneDrive\\Documentos\\GitHub\\ipsasel\" && node -e \"const handler = require('./api/index'); const event = { httpMethod:'GET', path:'/', headers:{host:'localhost'}, queryStringParameters:null, body:null, isBase64Encoded:false}; const context={}; handler(event, context).then(res=>console.log('RESULT', res && res.statusCode, typeof res.body==='string'?res.body.slice(0,200):res.body)).catch(err=>{ console.error('ERROR', err && err.stack ? err.stack : err); process.exit(1); });\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Debug Vercel Handler",
+			"type": "shell",
+			"command": "cd \"c:\\Users\\wilalr\\OneDrive\\Documentos\\GitHub\\ipsasel\"; node -e \"const handler = require('./api/index'); const event = { httpMethod:'GET', path:'/', headers:{host:'localhost'}, queryStringParameters:null, body:null, isBase64Encoded:false}; const context={}; handler(event, context).then(res=>console.log('RESULT', res && res.statusCode, typeof res.body==='string'?res.body.slice(0,200):res.body)).catch(err=>{ console.error('ERROR', err && err.stack ? err.stack : err); process.exit(1); });\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Debug Vercel Handler",
+			"type": "shell",
+			"command": "node -e \"const handler = require('./api/index'); const event = { httpMethod:'GET', path:'/', headers:{host:'localhost'}, queryStringParameters:null, body:null, isBase64Encoded:false}; const context={}; handler(event, context).then(res=>console.log('RESULT', res && res.statusCode, typeof res.body==='string'?res.body.slice(0,200):res.body)).catch(err=>{ console.error('ERROR', err && err.stack ? err.stack : err); process.exit(1); });\"",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}
