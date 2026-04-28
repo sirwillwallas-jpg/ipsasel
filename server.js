@@ -28,6 +28,21 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5432),
 });
 
+function logStartupDbError(err) {
+  const dbHost = process.env.DB_HOST || '127.0.0.1';
+  const dbPort = Number(process.env.DB_PORT || 5432);
+
+  if (err && err.code === 'ECONNREFUSED') {
+    console.error('No se pudo conectar a PostgreSQL.');
+    console.error(`Intento de conexión: ${dbHost}:${dbPort}`);
+    console.error('Verifique que el servicio de PostgreSQL esté iniciado y escuchando en ese host/puerto.');
+    console.error('Si está en Windows, puede iniciarlo desde una consola con permisos de administrador.');
+    return;
+  }
+
+  console.error('No se pudo iniciar el servidor:', err);
+}
+
 const ALLOWED_TIPOS = ['Técnica', 'Comercial', 'Soporte', 'Inspección', 'Personal', 'Administrativa'];
 const ALLOWED_ESTATUS = ['Planificada', 'En Curso', 'Completada', 'Revisada', 'Cancelada', 'No Programada', 'Emergencia'];
 const ALLOWED_TIPO_CONTACTO = ['Individual', 'Empresa', 'Organización'];
@@ -620,7 +635,7 @@ async function startServer() {
       console.log(`Servidor corriendo en http://localhost:${port}`);
     });
   } catch (err) {
-    console.error('No se pudo iniciar el servidor:', err);
+    logStartupDbError(err);
     process.exit(1);
   }
 }
