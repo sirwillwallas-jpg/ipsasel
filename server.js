@@ -182,6 +182,15 @@ app.use(session({
   resave: false,
   saveUninitialized: true,
 }));
+app.use(express.static(path.join(__dirname), { index: false }));
+
+app.get('/style.css', (req, res) => {
+  res.type('text/css').send(loadTextAsset('style.css', 'body { font-family: sans-serif; }'));
+});
+
+app.get('/menu_style.css', (req, res) => {
+  res.type('text/css').send(loadTextAsset('menu_style.css', 'body { font-family: sans-serif; }'));
+});
 const HTML_PAGES = {
   'menu_index.html': '<!doctype html><html><head><meta charset="utf-8"><title>INPSASEL</title></head><body><h1>INPSASEL</h1></body></html>',
   'index.html': '<!doctype html><html><head><meta charset="utf-8"><title>Registro</title></head><body><h1>Registro de visita</h1></body></html>',
@@ -199,6 +208,16 @@ function loadHtmlPage(fileName) {
   } catch (err) {
     console.warn(`No se pudo leer ${fileName}; se usará una versión mínima embebida.`);
     return HTML_PAGES[fileName] || '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
+  }
+}
+
+function loadTextAsset(fileName, fallbackContent) {
+  const filePath = path.join(__dirname, fileName);
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (err) {
+    console.warn(`No se pudo leer ${fileName}; se usará un fallback embebido.`);
+    return fallbackContent;
   }
 }
 
