@@ -47,6 +47,7 @@ const ALLOWED_TIPOS = ['Técnica', 'Comercial', 'Soporte', 'Inspección', 'Perso
 const ALLOWED_ESTATUS = ['Planificada', 'En Curso', 'Completada', 'Revisada', 'Cancelada', 'No Programada', 'Emergencia'];
 const ALLOWED_TIPO_CONTACTO = ['Individual', 'Empresa', 'Organización'];
 let supportsSplitContactFields = false;
+let detectColumnsPromise = null;
 
 async function detectContactColumns() {
   const result = await pool.query(`
@@ -74,6 +75,26 @@ function contactSearchSql(alias = 'c') {
   }
   return `COALESCE(${alias}.nombre_entidad, '') ILIKE $1`;
 }
+
+async function ensureContactColumns() {
+  if (!detectColumnsPromise) {
+    detectColumnsPromise = detectContactColumns().catch((err) => {
+      console.error('Error inicializando columnas de contacto:', err);
+      throw err;
+    });
+  }
+  return detectColumnsPromise;
+}
+
+// Middleware
+app.use(async (req, res, next) => {
+  try {
+    await ensureContactColumns();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 function normalizeContactData(body) {
   const tipoContacto = (body.tipo_contacto || '').trim();
@@ -640,4 +661,8 @@ async function startServer() {
   }
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
