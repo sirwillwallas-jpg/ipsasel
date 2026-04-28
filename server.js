@@ -20,27 +20,32 @@ function applyCorsHeaders(req, res) {
 }
 
 // Configuración de la base de datos PostgreSQL
-const requiredDbVars = ['DB_USER', 'DB_HOST', 'DB_NAME', 'DB_PASSWORD'];
-const missingDbVars = requiredDbVars.filter((key) => !process.env[key]);
-if (missingDbVars.length > 0) {
-  console.warn(`Advertencia: faltan variables de entorno de base de datos: ${missingDbVars.join(', ')}.`);
-  console.warn('Esto hará que las rutas que usen PostgreSQL fallarán en tiempo de ejecución.');
-}
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING || '';
+const databaseHost = process.env.DB_HOST || '';
+const useSsl = process.env.DB_SSL
+  ? process.env.DB_SSL === 'true'
+  : Boolean(databaseUrl) || (databaseHost && databaseHost !== '127.0.0.1' && databaseHost !== 'localhost');
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT || 5432),
-});
+const pool = databaseUrl
+  ? new Pool({
+    connectionString: databaseUrl,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+  })
+  : new Pool({
+    user: process.env.DB_USER || 'tu_usuario',
+    host: databaseHost || '127.0.0.1',
+    database: process.env.DB_NAME || 'ipsasel_db',
+    password: process.env.DB_PASSWORD || 'tu_password',
+    port: Number(process.env.DB_PORT || 5432),
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+  });
 
 pool.on('error', (err) => {
   console.error('PostgreSQL pool error:', err && err.message ? err.message : err);
 });
 
 function logStartupDbError(err) {
-  const dbHost = process.env.DB_HOST || '127.0.0.1';
+  const dbHost = databaseUrl ? '(connection string)' : (process.env.DB_HOST || '127.0.0.1');
   const dbPort = Number(process.env.DB_PORT || 5432);
 
   if (err && err.code === 'ECONNREFUSED') {
