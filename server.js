@@ -283,17 +283,17 @@ app.get('/visitas-del-dia', (req, res) => {
 });
 
 // Inicializar detección de columnas sólo en rutas que usan base de datos
-app.use(async (req, res, next) => {
+async function requireContactColumns(req, res, next) {
   try {
     await ensureContactColumns();
     next();
   } catch (err) {
     next(err);
   }
-});
+}
 
 // Ruta para registrar visita
-app.post('/register-visit', async (req, res) => {
+app.post('/register-visit', requireContactColumns, async (req, res) => {
   const {
     fecha,
     hora,
@@ -396,7 +396,7 @@ app.post('/register-visit', async (req, res) => {
 });
 
 // API para buscar visitas por código o datos parciales
-app.get('/api/visitas', async (req, res) => {
+app.get('/api/visitas', requireContactColumns, async (req, res) => {
   const { codigo_visita } = req.query;
   if (!codigo_visita) {
     return res.status(400).json({ success: false, message: 'Código de visita requerido' });
@@ -427,7 +427,7 @@ app.get('/api/visitas', async (req, res) => {
 });
 
 // Listar visitas recientes
-app.get('/visitas', async (req, res) => {
+app.get('/visitas', requireContactColumns, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
@@ -448,7 +448,7 @@ app.get('/visitas', async (req, res) => {
 });
 
 // Listar visitas de la fecha actual
-app.get('/api/visitas-del-dia', async (req, res) => {
+app.get('/api/visitas-del-dia', requireContactColumns, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
@@ -470,7 +470,7 @@ app.get('/api/visitas-del-dia', async (req, res) => {
 });
 
 // Listar visitas por fecha puntual (AAAA-MM-DD)
-app.get('/api/visitas-por-fecha', async (req, res) => {
+app.get('/api/visitas-por-fecha', requireContactColumns, async (req, res) => {
   const { fecha } = req.query;
 
   if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
@@ -505,7 +505,7 @@ function isPostgresAuthError(err) {
 }
 
 // Eventos para FullCalendar
-app.get('/api/visitas-calendario-resumen', async (req, res) => {
+app.get('/api/visitas-calendario-resumen', requireContactColumns, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -523,7 +523,7 @@ app.get('/api/visitas-calendario-resumen', async (req, res) => {
   }
 });
 
-app.get('/api/visitas-eventos', async (req, res) => {
+app.get('/api/visitas-eventos', requireContactColumns, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
@@ -577,7 +577,7 @@ app.get('/api/visitas-eventos', async (req, res) => {
 });
 
 // Ruta para modificar visita
-app.post('/modify-visit', async (req, res) => {
+app.post('/modify-visit', requireContactColumns, async (req, res) => {
   const {
     codigo_visita,
     fecha,
