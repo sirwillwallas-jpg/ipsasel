@@ -64,7 +64,8 @@ El servidor correrá en `http://localhost:3000`.
 
 - La primera pantalla es `GET /` o `GET /login`.
 - El login valida contra la tabla `USUARIOS`, usando `username` y `password` con hash bcrypt.
-- Para un solo usuario, crea una sola fila en `USUARIOS` y usa ese usuario para ingresar.
+- Para un solo usuario, configura `APP_ADMIN_USERNAME` y `APP_ADMIN_PASSWORD_HASH` en `.env`.
+- Al entrar con el usuario configurado, el servidor crea o actualiza esa fila en `USUARIOS`.
 - Las pantallas internas y las APIs requieren sesion activa.
 
 ## Rutas

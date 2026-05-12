@@ -15,6 +15,9 @@ const DEFAULT_USER_ID = Number(process.env.DEFAULT_USER_ID || 1);
 const SESSION_SECRET = process.env.SESSION_SECRET || 'secreto_ipsasel';
 const AUTH_COOKIE_NAME = 'ipsasel_auth';
 const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || 8 * 60 * 60 * 1000);
+const APP_ADMIN_USERNAME = process.env.APP_ADMIN_USERNAME || '';
+const APP_ADMIN_PASSWORD_HASH = process.env.APP_ADMIN_PASSWORD_HASH || '';
+const APP_ADMIN_NAME = process.env.APP_ADMIN_NAME || 'Administrador INPSASEL';
 
 function applyCorsHeaders(req, res) {
   const requestOrigin = req.headers.origin;
@@ -412,6 +415,46 @@ function isPublicRequest(req) {
   }
 
   return req.method === 'GET' && isPublicAsset(req.path);
+}
+
+async function authenticateConfiguredAdmin(username, password) {
+  if (!APP_ADMIN_USERNAME || !APP_ADMIN_PASSWORD_HASH || username !== APP_ADMIN_USERNAME) {
+    return null;
+  }
+
+  const match = await bcrypt.compare(password, APP_ADMIN_PASSWORD_HASH);
+  if (!match) {
+    return null;
+  }
+
+  const roleResult = await pool.query(
+    `INSERT INTO ROLES (nombre_rol)
+     VALUES ($1)
+     ON CONFLICT (nombre_rol) DO UPDATE SET nombre_rol = EXCLUDED.nombre_rol
+     RETURNING id_rol`,
+    ['Admin']
+  );
+
+  const userResult = await pool.query(
+    `INSERT INTO USUARIOS (id_rol, nombre_completo, username, password)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (username) DO UPDATE SET
+       id_rol = EXCLUDED.id_rol,
+       nombre_completo = EXCLUDED.nombre_completo,
+       password = EXCLUDED.password
+     RETURNING id_usuario, username`,
+    [roleResult.rows[0].id_rol, APP_ADMIN_NAME, APP_ADMIN_USERNAME, APP_ADMIN_PASSWORD_HASH]
+  );
+
+  return userResult.rows[0];
+}
+
+function establishLoginSession(req, res, user, redirectTo) {
+  req.session.isAuthenticated = true;
+  req.session.userId = user.id_usuario;
+  req.session.username = user.username;
+  setAuthCookie(res, user);
+  return res.redirect(303, redirectTo);
 }
 
 // Rutas
@@ -915,12 +958,13 @@ app.post('/login', async (req, res) => {
       const user = result.rows[0];
       const match = await bcrypt.compare(password, user.password);
       if (match) {
-        req.session.isAuthenticated = true;
-        req.session.userId = user.id_usuario;
-        req.session.username = user.username;
-        setAuthCookie(res, user);
-        return res.redirect(303, redirectTo);
+        return establishLoginSession(req, res, user, redirectTo);
       }
+    }
+
+    const configuredAdmin = await authenticateConfiguredAdmin(username, password);
+    if (configuredAdmin) {
+      return establishLoginSession(req, res, configuredAdmin, redirectTo);
     }
 
     return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contrasena incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
