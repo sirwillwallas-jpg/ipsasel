@@ -18,6 +18,8 @@ const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || 8 * 
 const APP_ADMIN_USERNAME = process.env.APP_ADMIN_USERNAME || '';
 const APP_ADMIN_PASSWORD_HASH = process.env.APP_ADMIN_PASSWORD_HASH || '';
 const APP_ADMIN_NAME = process.env.APP_ADMIN_NAME || 'Administrador INPSASEL';
+const DB_CONNECTION_TIMEOUT_MS = Number(process.env.DB_CONNECTION_TIMEOUT_MS || 5000);
+const DB_QUERY_TIMEOUT_MS = Number(process.env.DB_QUERY_TIMEOUT_MS || 10000);
 
 function applyCorsHeaders(req, res) {
   const requestOrigin = req.headers.origin;
@@ -39,6 +41,8 @@ const pool = databaseUrl
   ? new Pool({
     connectionString: databaseUrl,
     ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+    connectionTimeoutMillis: DB_CONNECTION_TIMEOUT_MS,
+    query_timeout: DB_QUERY_TIMEOUT_MS,
   })
   : new Pool({
     user: process.env.DB_USER || 'tu_usuario',
@@ -47,6 +51,8 @@ const pool = databaseUrl
     password: process.env.DB_PASSWORD || 'tu_password',
     port: Number(process.env.DB_PORT || 5432),
     ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+    connectionTimeoutMillis: DB_CONNECTION_TIMEOUT_MS,
+    query_timeout: DB_QUERY_TIMEOUT_MS,
   });
 
 pool.on('error', (err) => {
@@ -621,6 +627,16 @@ function isPublicRequest(req) {
   return req.method === 'GET' && isPublicAsset(req.path);
 }
 
+function hasConfiguredDatabase() {
+  return Boolean(
+    databaseUrl ||
+    process.env.DB_USER ||
+    process.env.DB_HOST ||
+    process.env.DB_NAME ||
+    process.env.DB_PASSWORD
+  );
+}
+
 async function authenticateConfiguredAdmin(username, password) {
   if (!APP_ADMIN_USERNAME || !APP_ADMIN_PASSWORD_HASH || username !== APP_ADMIN_USERNAME) {
     return null;
@@ -631,26 +647,41 @@ async function authenticateConfiguredAdmin(username, password) {
     return null;
   }
 
-  const roleResult = await pool.query(
-    `INSERT INTO ROLES (nombre_rol)
-     VALUES ($1)
-     ON CONFLICT (nombre_rol) DO UPDATE SET nombre_rol = EXCLUDED.nombre_rol
-     RETURNING id_rol`,
-    ['Admin']
-  );
+  if (!hasConfiguredDatabase()) {
+    return {
+      id_usuario: DEFAULT_USER_ID,
+      username: APP_ADMIN_USERNAME,
+    };
+  }
 
-  const userResult = await pool.query(
-    `INSERT INTO USUARIOS (id_rol, nombre_completo, username, password)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (username) DO UPDATE SET
-       id_rol = EXCLUDED.id_rol,
-       nombre_completo = EXCLUDED.nombre_completo,
-       password = EXCLUDED.password
-     RETURNING id_usuario, username`,
-    [roleResult.rows[0].id_rol, APP_ADMIN_NAME, APP_ADMIN_USERNAME, APP_ADMIN_PASSWORD_HASH]
-  );
+  try {
+    const roleResult = await pool.query(
+      `INSERT INTO ROLES (nombre_rol)
+       VALUES ($1)
+       ON CONFLICT (nombre_rol) DO UPDATE SET nombre_rol = EXCLUDED.nombre_rol
+       RETURNING id_rol`,
+      ['Admin']
+    );
 
-  return userResult.rows[0];
+    const userResult = await pool.query(
+      `INSERT INTO USUARIOS (id_rol, nombre_completo, username, password)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (username) DO UPDATE SET
+         id_rol = EXCLUDED.id_rol,
+         nombre_completo = EXCLUDED.nombre_completo,
+         password = EXCLUDED.password
+       RETURNING id_usuario, username`,
+      [roleResult.rows[0].id_rol, APP_ADMIN_NAME, APP_ADMIN_USERNAME, APP_ADMIN_PASSWORD_HASH]
+    );
+
+    return userResult.rows[0];
+  } catch (err) {
+    console.warn('No se pudo sincronizar el usuario administrador en PostgreSQL:', err && err.message ? err.message : err);
+    return {
+      id_usuario: DEFAULT_USER_ID,
+      username: APP_ADMIN_USERNAME,
+    };
+  }
 }
 
 function establishLoginSession(req, res, user, redirectTo) {
@@ -1157,6 +1188,15 @@ app.post('/login', async (req, res) => {
   }
 
   try {
+    if (APP_ADMIN_USERNAME && username === APP_ADMIN_USERNAME) {
+      const configuredAdmin = await authenticateConfiguredAdmin(username, password);
+      if (configuredAdmin) {
+        return establishLoginSession(req, res, configuredAdmin, redirectTo);
+      }
+
+      return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contrasena incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
+    }
+
     const result = await pool.query('SELECT id_usuario, username, password FROM USUARIOS WHERE username = $1', [username]);
     if (result.rows.length > 0) {
       const user = result.rows[0];
@@ -1164,11 +1204,6 @@ app.post('/login', async (req, res) => {
       if (match) {
         return establishLoginSession(req, res, user, redirectTo);
       }
-    }
-
-    const configuredAdmin = await authenticateConfiguredAdmin(username, password);
-    if (configuredAdmin) {
-      return establishLoginSession(req, res, configuredAdmin, redirectTo);
     }
 
     return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contrasena incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
