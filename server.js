@@ -31,7 +31,7 @@ function applyCorsHeaders(req, res) {
 }
 
 // Configuración de la base de datos PostgreSQL
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING || '';
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING || '';
 const databaseHost = process.env.DB_HOST || '';
 const useSsl = process.env.DB_SSL
   ? process.env.DB_SSL === 'true'
@@ -45,11 +45,11 @@ const pool = databaseUrl
     query_timeout: DB_QUERY_TIMEOUT_MS,
   })
   : new Pool({
-    user: process.env.DB_USER || 'tu_usuario',
-    host: databaseHost || '127.0.0.1',
-    database: process.env.DB_NAME || 'ipsasel_db',
-    password: process.env.DB_PASSWORD || 'tu_password',
-    port: Number(process.env.DB_PORT || 5432),
+    user: process.env.DB_USER || process.env.PGUSER || 'tu_usuario',
+    host: databaseHost || process.env.PGHOST || '127.0.0.1',
+    database: process.env.DB_NAME || process.env.PGDATABASE || 'ipsasel_db',
+    password: process.env.DB_PASSWORD || process.env.PGPASSWORD || 'tu_password',
+    port: Number(process.env.DB_PORT || process.env.PGPORT || 5432),
     ssl: useSsl ? { rejectUnauthorized: false } : undefined,
     connectionTimeoutMillis: DB_CONNECTION_TIMEOUT_MS,
     query_timeout: DB_QUERY_TIMEOUT_MS,
@@ -628,12 +628,20 @@ function isPublicRequest(req) {
 }
 
 function hasConfiguredDatabase() {
+  if (!databaseUrl && process.env.VERCEL && ['127.0.0.1', 'localhost'].includes(databaseHost)) {
+    return false;
+  }
+
   return Boolean(
     databaseUrl ||
     process.env.DB_USER ||
     process.env.DB_HOST ||
     process.env.DB_NAME ||
-    process.env.DB_PASSWORD
+    process.env.DB_PASSWORD ||
+    process.env.PGUSER ||
+    process.env.PGHOST ||
+    process.env.PGDATABASE ||
+    process.env.PGPASSWORD
   );
 }
 
