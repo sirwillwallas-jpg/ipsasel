@@ -75,7 +75,7 @@ El servidor correrá en `http://localhost:3000`.
 - `POST /logout`: Cerrar sesion
 - `GET /menu`: Menu del sistema
 - `GET /register-visit`: Formulario de registro de visitas
-- `POST /register-visit`: Registrar una visita
+- `POST /register-visit`: Registrar una visita.
 
 ## Notas
 
