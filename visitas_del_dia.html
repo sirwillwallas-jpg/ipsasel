@@ -268,7 +268,10 @@
         <div class="wizard-modal">
             <div class="wizard-header">
                 <h4 id="wizardTitle" class="wizard-title">Detalle de visita</h4>
-                <button id="wizardCloseBtn" class="wizard-close" type="button" aria-label="Cerrar">&times;</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button id="downloadPdfBtn" class="btn-secondary" type="button" title="Descargar PDF" disabled>Descargar PDF</button>
+                    <button id="wizardCloseBtn" class="wizard-close" type="button" aria-label="Cerrar">&times;</button>
+                </div>
             </div>
             <div id="wizardContent" class="wizard-content"></div>
         </div>
@@ -276,14 +279,17 @@
 
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales/es.global.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
     <script>
         let calendar;
+        let currentEventData = null;
 
         function safeText(value) {
             return (value ?? '').toString();
         }
 
         function openEventModal(eventData) {
+            currentEventData = eventData;
             const modal = document.getElementById('eventModal');
             const content = document.getElementById('wizardContent');
             const rows = [
@@ -309,11 +315,46 @@
             `).join('');
 
             modal.classList.add('open');
+            const downloadBtn = document.getElementById('downloadPdfBtn');
+            if (downloadBtn) downloadBtn.disabled = false;
         }
 
         function closeEventModal() {
             const modal = document.getElementById('eventModal');
             modal.classList.remove('open');
+            currentEventData = null;
+            const downloadBtn = document.getElementById('downloadPdfBtn');
+            if (downloadBtn) downloadBtn.disabled = true;
+        }
+
+        function generatePDF() {
+            if (!currentEventData) return alert('No hay datos para generar el PDF.');
+            const content = document.getElementById('wizardContent');
+            // Clone the content to avoid layout shifts and ensure clean capture
+            const clone = content.cloneNode(true);
+            clone.style.padding = '20px';
+            clone.style.background = '#ffffff';
+            clone.style.color = '#0f172a';
+            clone.style.width = '800px';
+
+            const wrapper = document.createElement('div');
+            const title = document.createElement('h2');
+            title.textContent = 'Reporte de visita - ' + (currentEventData.codigo_visita || 'Visita');
+            title.style.fontFamily = 'Arial, Helvetica, sans-serif';
+            title.style.margin = '0 0 12px 0';
+            wrapper.appendChild(title);
+            wrapper.appendChild(clone);
+
+            // Use html2pdf to generate PDF
+            const opt = {
+                margin:       10,
+                filename:     `${currentEventData.codigo_visita || 'visita'}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(wrapper).save();
         }
 
         function getTodayISO() {
@@ -478,6 +519,7 @@
 
         document.getElementById('reloadBtn').addEventListener('click', refreshCalendar);
         document.getElementById('wizardCloseBtn').addEventListener('click', closeEventModal);
+        document.getElementById('downloadPdfBtn').addEventListener('click', generatePDF);
         document.getElementById('eventModal').addEventListener('click', function(event) {
             if (event.target.id === 'eventModal') {
                 closeEventModal();

@@ -33,9 +33,20 @@ function applyCorsHeaders(req, res) {
 // Configuración de la base de datos PostgreSQL
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING || '';
 const databaseHost = process.env.DB_HOST || '';
-const useSsl = process.env.DB_SSL
-  ? process.env.DB_SSL === 'true'
-  : Boolean(databaseUrl) || (databaseHost && databaseHost !== '127.0.0.1' && databaseHost !== 'localhost');
+let useSsl;
+if (typeof process.env.DB_SSL !== 'undefined') {
+  useSsl = process.env.DB_SSL === 'true';
+} else if (databaseUrl) {
+  try {
+    const parsed = new URL(databaseUrl);
+    const hostFromUrl = parsed.hostname || '';
+    useSsl = !(hostFromUrl === 'localhost' || hostFromUrl === '127.0.0.1' || hostFromUrl === '');
+  } catch (err) {
+    useSsl = Boolean(databaseHost) && databaseHost !== '127.0.0.1' && databaseHost !== 'localhost';
+  }
+} else {
+  useSsl = Boolean(databaseHost) && databaseHost !== '127.0.0.1' && databaseHost !== 'localhost';
+}
 
 const pool = databaseUrl
   ? new Pool({
@@ -1245,13 +1256,36 @@ app.use((err, req, res, next) => {
 
 // Iniciar servidor
 async function startServer() {
-  try {
-    app.listen(port, () => {
-      console.log(`Servidor corriendo en http://localhost:${port}`);
+  const maxAttempts = 5;
+  let currentPort = port;
+
+  async function tryListen(p) {
+    return new Promise((resolve, reject) => {
+      const server = app.listen(p, () => resolve(server));
+      server.on('error', (err) => reject(err));
     });
-  } catch (err) {
-    logStartupDbError(err);
-    process.exit(1);
+  }
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const server = await tryListen(currentPort);
+      console.log(`Servidor corriendo en http://localhost:${currentPort}`);
+      return;
+    } catch (err) {
+      if (err && err.code === 'EADDRINUSE') {
+        console.error(`Puerto ${currentPort} ya está en uso.`);
+        if (attempt < maxAttempts - 1) {
+          currentPort += 1;
+          console.log(`Intentando puerto ${currentPort}...`);
+          continue;
+        }
+        console.error('No se pudo iniciar el servidor: puerto en uso. Usa otra variable PORT o libera el puerto.');
+        process.exit(1);
+      }
+
+      logStartupDbError(err);
+      process.exit(1);
+    }
   }
 }
 
