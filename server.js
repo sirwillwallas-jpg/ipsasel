@@ -184,8 +184,9 @@ function validateVisitBody(body) {
   if (tipo_contacto && !ALLOWED_TIPO_CONTACTO.includes(tipo_contacto)) errors.push(`Tipo de contacto inválido. Valores válidos: ${ALLOWED_TIPO_CONTACTO.join(', ')}.`);
 
   if (fecha && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha)) errors.push('Formato de fecha inválido. Use AAAA-MM-DD.');
-  // Accept hours with or without leading zero and valid minute range (0-59).
-  if (hora && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(hora)) errors.push('Formato de hora inválido. Use HH:MM.');
+  // Accept hours with or without leading zero, optional seconds, and valid ranges.
+  const horaVal = typeof hora === 'string' ? hora.trim() : (hora || '');
+  if (hora && !/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(horaVal)) errors.push('Formato de hora inválido. Use HH:MM.');
   if (telefono && telefono.length < 7) errors.push('Teléfono parece demasiado corto.');
 
   return errors;
