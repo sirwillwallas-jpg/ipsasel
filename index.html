@@ -36,6 +36,7 @@
             <div class="form-group">
               <label for="entidad">Entidad</label>
               <input type="text" id="entidad" name="entidad" placeholder="Ej. Empresa XYZ">
+            
             </div>
 
             <div class="form-group">
@@ -49,36 +50,40 @@
             </div>
 
             <div class="form-group">
-                <label for="tipo_contacto">Tipo de Contacto</label>
-                <select id="tipo_contacto" name="tipo_contacto">
-                    <option value="Individual">Individual</option>
-                    <option value="Empresa">Empresa</option>
-                    <option value="Organización">Organización</option>
+                <label for="Sector">Sector</label>
+                <select id="Sector" name="Sector">
+                    <option value="Publico">Publico</option>
+                    <option value="Privado">Privado</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label for="tipo_visita">Tipo de Visita</label>
-                <select id="tipo_visita" name="tipo_visita">
-                    <option value="Técnica">Técnica</option>
-                    <option value="Administrativa">Administrativa</option>
-                    <option value="Comercial">Comercial</option>
-                    <option value="Personal">Personal</option>
-                    <option value="Inspección">Inspección</option>
-                    <option value="Soporte">Soporte</option>
-                </select>
+                <label for="Motivo_visita">Motivo de Visita</label>
+                <input type="text" id="Motivo_visita" name="Motivo_visita" placeholder="Ej. Declaracion de Accidentes">
             </div>
 
             <div class="form-group">
-                <label for="estatus">Estatus de Visita</label>
+                <label for="estatus">Estatus de la Solicitud</label>
                 <select id="estatus" name="estatus">
-                    <option value="Planificada">Planificada</option>
-                    <option value="No Programada">No Programada</option>
-                    <option value="Emergencia">Emergencia</option>
-                    <option value="En Curso">En Curso</option>
-                    <option value="Completada">Completada</option>
+                    <option value="Procesada">Procesada</option>
+                    <option value="Rechasada">Rechasada</option>
+                    <option value="En Revision">En Revision</option>
+                    <option value="Otras">Otras</option>
                 </select>
             </div>
+
+            <div class="form-group">
+                <label for="Cordinacion_Referida">Cordinacion Referida</label>
+                <select id="Cordinacion_Referida" name="Cordinacion_Referida">
+                    <option value="Inspecciones">Inspecciones</option>
+                    <option value="Educacion">Educacion</option>
+                    <option value="Sanciones">Sanciones</option>
+                    <option value="Salud laboral">Salud laboral</option>
+                    <option value="Psicosocial">Psicosocial</option>
+                    <option value="Epidemiologia">Epidemiologia</option>
+                </select>
+            </div>
+
 
             <div class="form-group checkbox-group full-width">
                 <label class="checkbox-label">
