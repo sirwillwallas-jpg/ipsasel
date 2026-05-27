@@ -85,8 +85,13 @@ function logStartupDbError(err) {
   console.error('No se pudo iniciar el servidor:', err);
 }
 
+const ALLOWED_SEXO = ['Masculino', 'Femenino', 'Otro'];
+const ALLOWED_SECTOR = ['Publico', 'Privado'];
+const ALLOWED_FUNCION = ['DDP', 'CSSL', 'SERV', 'TRAB'];
+const ALLOWED_ESTATUS = ['Procesada', 'Rechasada', 'En Revision', 'Otras'];
+const ALLOWED_MUNICIPIOS = ['Agua Blanca', 'Araure', 'Esteller', 'Guanare', 'Guanarito', 'Monseñor José Vicente de Unda', 'Ospino', 'Páez', 'Papelón', 'San Genaro de Boconoíto', 'San Rafael de Onoto', 'Santa Rosalía', 'Sucre', 'Turén'];
+const ALLOWED_CORDINACION_REFERIDA = ['Inspecciones', 'Educacion', 'Sanciones', 'Salud laboral', 'Psicosocial', 'Epidemiologia'];
 const ALLOWED_TIPOS = ['Técnica', 'Comercial', 'Soporte', 'Inspección', 'Personal', 'Administrativa'];
-const ALLOWED_ESTATUS = ['Planificada', 'En Curso', 'Completada', 'Revisada', 'Cancelada', 'No Programada', 'Emergencia'];
 const ALLOWED_TIPO_CONTACTO = ['Individual', 'Empresa', 'Organización'];
 let supportsSplitContactFields = false;
 let detectColumnsPromise = null;
@@ -160,34 +165,56 @@ function normalizeContactData(body) {
 
 function validateVisitBody(body) {
   const errors = [];
-  const { fecha, hora, tipo_visita, estatus, cedula_rif, nombre_entidad, telefono, tipo_contacto } = body;
-  const contactData = normalizeContactData(body);
+  const {
+    fecha,
+    hora,
+    nombre_completo,
+    Sexo,
+    Edad,
+    motivo_visita,
+    cedula_rif,
+    telefono,
+    municipios,
+    sector,
+    entidad,
+    cargo,
+    funcion,
+    estatus,
+    actividad_economica,
+    Cordinacion_Referida,
+    funcionario,
+  } = body;
 
   if (!fecha) errors.push('Fecha es obligatoria.');
   if (!hora) errors.push('Hora es obligatoria.');
-  if (!tipo_visita) errors.push('Tipo de visita es obligatorio.');
-  if (tipo_visita && !ALLOWED_TIPOS.includes(tipo_visita)) errors.push(`Tipo de visita inválido. Valores válidos: ${ALLOWED_TIPOS.join(', ')}.`);
   if (!estatus) errors.push('Estatus es obligatorio.');
   if (estatus && !ALLOWED_ESTATUS.includes(estatus)) errors.push(`Estatus inválido. Valores válidos: ${ALLOWED_ESTATUS.join(', ')}.`);
+  if (!nombre_completo) errors.push('Nombre completo es obligatorio.');
+  if (!Sexo) errors.push('Sexo es obligatorio.');
+  if (Sexo && !ALLOWED_SEXO.includes(Sexo)) errors.push(`Sexo inválido. Valores válidos: ${ALLOWED_SEXO.join(', ')}.`);
+  if (!Edad) errors.push('Edad es obligatoria.');
+  if (Edad && (!Number.isInteger(Number(Edad)) || Number(Edad) <= 0)) errors.push('Edad debe ser un número entero positivo.');
+  if (!motivo_visita) errors.push('Motivo de visita es obligatorio.');
   if (!cedula_rif) errors.push('Cédula o RIF es obligatorio.');
-  if (!contactData.nombre_completo && !contactData.entidad && !nombre_entidad) {
-    errors.push('Debe indicar Nombre completo o Entidad.');
-  }
-  if (tipo_contacto === 'Individual' && !contactData.nombre_completo) {
-    errors.push('Nombre completo es obligatorio para tipo de contacto Individual.');
-  }
-  if (tipo_contacto && tipo_contacto !== 'Individual' && !contactData.entidad) {
-    errors.push('Entidad es obligatoria para tipo de contacto Empresa u Organización.');
-  }
   if (!telefono) errors.push('Teléfono es obligatorio.');
-  if (!tipo_contacto) errors.push('Tipo de contacto es obligatorio.');
-  if (tipo_contacto && !ALLOWED_TIPO_CONTACTO.includes(tipo_contacto)) errors.push(`Tipo de contacto inválido. Valores válidos: ${ALLOWED_TIPO_CONTACTO.join(', ')}.`);
+  if (telefono && telefono.length < 7) errors.push('Teléfono parece demasiado corto.');
+  if (!municipios) errors.push('Municipio es obligatorio.');
+  if (municipios && !ALLOWED_MUNICIPIOS.includes(municipios)) errors.push(`Municipio inválido. Valores válidos: ${ALLOWED_MUNICIPIOS.join(', ')}.`);
+  if (!sector) errors.push('Sector es obligatorio.');
+  if (sector && !ALLOWED_SECTOR.includes(sector)) errors.push(`Sector inválido. Valores válidos: ${ALLOWED_SECTOR.join(', ')}.`);
+  if (!entidad) errors.push('Entidad es obligatoria.');
+  if (!cargo) errors.push('Cargo es obligatorio.');
+  if (!funcion) errors.push('Función es obligatoria.');
+  if (funcion && !ALLOWED_FUNCION.includes(funcion)) errors.push(`Función inválida. Valores válidos: ${ALLOWED_FUNCION.join(', ')}.`);
+  if (!actividad_economica) errors.push('Actividad económica es obligatoria.');
+  if (!Cordinacion_Referida) errors.push('Coordinación referida es obligatoria.');
+  if (Cordinacion_Referida && !ALLOWED_CORDINACION_REFERIDA.includes(Cordinacion_Referida)) errors.push(`Coordinación referida inválida. Valores válidos: ${ALLOWED_CORDINACION_REFERIDA.join(', ')}.`);
+  if (!funcionario) errors.push('Funcionario es obligatorio.');
 
   if (fecha && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha)) errors.push('Formato de fecha inválido. Use AAAA-MM-DD.');
   // Accept hours with or without leading zero, optional seconds, and valid ranges.
   const horaVal = typeof hora === 'string' ? hora.trim() : (hora || '');
   if (hora && !/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(horaVal)) errors.push('Formato de hora inválido. Use HH:MM.');
-  if (telefono && telefono.length < 7) errors.push('Teléfono parece demasiado corto.');
 
   return errors;
 }
@@ -816,20 +843,28 @@ app.post('/register-visit', requireContactColumns, async (req, res) => {
   const {
     fecha,
     hora,
-    tipo_visita,
     estatus,
     cedula_rif,
     nombre_completo,
     entidad,
     nombre_entidad,
     telefono,
-    tipo_contacto,
+    Sexo,
+    Edad,
+    motivo_visita,
+    municipios,
+    sector,
+    cargo,
+    funcion,
+    actividad_economica,
+    Cordinacion_Referida,
+    funcionario,
     codigo_ot,
     detalle_ot,
     cordinacion_referida,
     observaciones
   } = req.body;
-  const contactData = normalizeContactData({ nombre_completo, entidad, nombre_entidad, tipo_contacto });
+  const contactData = normalizeContactData({ nombre_completo, entidad, nombre_entidad, tipo_contacto: 'Individual' });
 
   const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   const errors = validateVisitBody(req.body);
@@ -854,23 +889,23 @@ app.post('/register-visit', requireContactColumns, async (req, res) => {
       if (supportsSplitContactFields) {
         await pool.query(
           'UPDATE CONTACTOS SET nombre_completo = $1, entidad = $2, nombre_entidad = $3, telefono = $4, tipo_contacto = $5 WHERE id_contacto = $6',
-          [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
+          [contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, 'Individual', id_contacto]
         );
       } else {
         await pool.query(
           'UPDATE CONTACTOS SET nombre_entidad = $1, telefono = $2, tipo_contacto = $3 WHERE id_contacto = $4',
-          [contactData.nombre_entidad, telefono, tipo_contacto, id_contacto]
+          [contactData.nombre_entidad, telefono, 'Individual', id_contacto]
         );
       }
     } else {
       const insertContacto = supportsSplitContactFields
         ? await pool.query(
           'INSERT INTO CONTACTOS (cedula_rif, nombre_completo, entidad, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_contacto',
-          [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, tipo_contacto]
+          [cedula_rif, contactData.nombre_completo || null, contactData.entidad || null, contactData.nombre_entidad, telefono, 'Individual']
         )
         : await pool.query(
           'INSERT INTO CONTACTOS (cedula_rif, nombre_entidad, telefono, tipo_contacto) VALUES ($1, $2, $3, $4) RETURNING id_contacto',
-          [cedula_rif, contactData.nombre_entidad, telefono, tipo_contacto]
+          [cedula_rif, contactData.nombre_entidad, telefono, 'Individual']
         );
       id_contacto = insertContacto.rows[0].id_contacto;
     }
@@ -899,7 +934,7 @@ app.post('/register-visit', requireContactColumns, async (req, res) => {
 
     await pool.query(
       'INSERT INTO VISITAS (codigo_visita, fecha, hora, tipo_visita, estatus, cordinacion_referida, observaciones, id_contacto, id_usuario, id_orden) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-      [codigo_visita, fecha, hora, tipo_visita, estatus, cordinacion_referida || null, observaciones || null, id_contacto, id_usuario, id_orden]
+      [codigo_visita, fecha, hora, 'Personal', estatus, Cordinacion_Referida || cordinacion_referida || null, observaciones || null, id_contacto, id_usuario, id_orden]
     );
 
     const message = `Visita registrada exitosamente. Código: ${codigo_visita}`;

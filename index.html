@@ -196,20 +196,6 @@
 <script>
 const form = document.getElementById('visit-form');
 const messageContainer = document.getElementById('message-container');
-const tipoContactoSelect = document.getElementById('tipo_contacto');
-const nombreCompletoInput = document.getElementById('nombre_completo');
-const entidadInput = document.getElementById('entidad');
-
-function updateContactRequirements() {
-  const tipoContacto = tipoContactoSelect.value;
-  if (tipoContacto === 'Individual') {
-    nombreCompletoInput.required = true;
-    entidadInput.required = false;
-  } else {
-    nombreCompletoInput.required = false;
-    entidadInput.required = true;
-  }
-}
 
 function createMessageCard(message, success = true) {
   const card = document.createElement('div');
@@ -290,9 +276,6 @@ form.addEventListener('submit', async (event) => {
     });
     otFields.style.display = 'none';
   }
-
-  tipoContactoSelect.addEventListener('change', updateContactRequirements);
-  updateContactRequirements();
 </script>
 
 </body>
