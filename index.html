@@ -102,6 +102,26 @@
             </div>
 
             <div class="form-group">
+              <label for="funcion">Función</label>
+                <select id="funcion" name="funcion">
+                    <option value="DDP">Delegado de Prevención</option>
+                    <option value="CSSL">Comité de Seguridad y Salud Laboral</option>
+                    <option value="SERV">Servicio de Salud</option>
+                    <option value="TRAB" selected>Trabajador</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+              <label for="estatus">Estatus de la Solicitud</label>
+                <select id="estatus" name="estatus">
+                    <option value="Procesada">Procesada</option>
+                    <option value="Rechasada">Rechazada</option>
+                    <option value="En Revision">En Revisión</option>
+                    <option value="Otras">Otras</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="actividad_economica">Actividad Económica</label>
                 <input type="text" id="actividad_economica" name="actividad_economica" placeholder="Ej. Industria">
             </div>
