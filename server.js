@@ -87,7 +87,7 @@ function logStartupDbError(err) {
 
 const ALLOWED_SEXO = ['Masculino', 'Femenino', 'Otro'];
 const ALLOWED_SECTOR = ['Publico', 'Privado'];
-const ALLOWED_FUNCION = ['DDP', 'CSSL', 'SERV', 'TRAB'];
+const ALLOWED_FUNCION = ['DDP', 'CSSL', 'SERV', 'TRAB', 'OTRO'];
 const ALLOWED_ESTATUS = ['Procesada', 'Rechasada', 'En Revision', 'Otras'];
 const ALLOWED_MUNICIPIOS = ['Agua Blanca', 'Araure', 'Esteller', 'Guanare', 'Guanarito', 'Monseñor José Vicente de Unda', 'Ospino', 'Páez', 'Papelón', 'San Genaro de Boconoíto', 'San Rafael de Onoto', 'Santa Rosalía', 'Sucre', 'Turén'];
 const ALLOWED_CORDINACION_REFERIDA = ['Inspecciones', 'Educacion', 'Sanciones', 'Salud laboral', 'Psicosocial', 'Epidemiologia'];
