@@ -933,9 +933,9 @@ app.post('/register-visit', requireContactColumns, async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO VISITAS (codigo_visita, fecha, hora, tipo_visita, estatus, cordinacion_referida, observaciones, sexo, edad, municipio, sector, cargo, funcion, actividad_economica, funcionario, id_contacto, id_usuario, id_orden)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
-      [codigo_visita, fecha, hora, 'Personal', estatus, Cordinacion_Referida || cordinacion_referida || null, observaciones || null, Sexo || null, Edad ? Number(Edad) : null, municipio || null, sector || null, cargo || null, funcion || null, actividad_economica || null, funcionario || null, id_contacto, id_usuario, id_orden]
+      `INSERT INTO VISITAS (codigo_visita, fecha, hora, tipo_visita, motivo_visita, estatus, cordinacion_referida, observaciones, sexo, edad, municipio, sector, cargo, funcion, actividad_economica, funcionario, id_contacto, id_usuario, id_orden)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+      [codigo_visita, fecha, hora, 'Personal', motivo_visita || null, estatus, Cordinacion_Referida || cordinacion_referida || null, observaciones || null, Sexo || null, Edad ? Number(Edad) : null, municipio || null, sector || null, cargo || null, funcion || null, actividad_economica || null, funcionario || null, id_contacto, id_usuario, id_orden]
     );
 
     const message = `Visita registrada exitosamente. Código: ${codigo_visita}`;
@@ -963,7 +963,7 @@ app.get('/api/visitas', requireContactColumns, async (req, res) => {
   try {
     const searchTerm = `%${codigo_visita.trim()}%`;
     const result = await pool.query(`
-          SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus, v.cordinacion_referida, v.observaciones,
+          SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.motivo_visita, v.estatus, v.cordinacion_referida, v.observaciones,
             v.sexo AS sexo, v.edad AS edad, v.municipio AS municipio, v.sector AS sector, v.cargo AS cargo, v.funcion AS funcion, v.actividad_economica AS actividad_economica, v.funcionario AS funcionario,
              ${contactSelectSql('c')},
              c.cedula_rif, c.telefono, c.tipo_contacto,
@@ -1239,21 +1239,22 @@ app.post('/modify-visit', requireContactColumns, async (req, res) => {
          fecha = $1,
          hora = $2,
          tipo_visita = $3,
-         estatus = $4,
-         cordinacion_referida = $5,
-         observaciones = $6,
-         sexo = $7,
-         edad = $8,
-         municipio = $9,
-         sector = $10,
-         cargo = $11,
-         funcion = $12,
-         actividad_economica = $13,
-         funcionario = $14,
-         id_contacto = $15,
-         id_orden = $16
-       WHERE codigo_visita = $17`,
-      [fecha, hora, tipo_visita, estatus, Cordinacion_Referida || null, observaciones || null, Sexo || null, Edad ? Number(Edad) : null, municipio || null, sector || null, cargo || null, funcion || null, actividad_economica || null, funcionario || null, id_contacto, id_orden, codigo_visita]
+         motivo_visita = $4,
+         estatus = $5,
+         cordinacion_referida = $6,
+         observaciones = $7,
+         sexo = $8,
+         edad = $9,
+         municipio = $10,
+         sector = $11,
+         cargo = $12,
+         funcion = $13,
+         actividad_economica = $14,
+         funcionario = $15,
+         id_contacto = $16,
+         id_orden = $17
+       WHERE codigo_visita = $18`,
+      [fecha, hora, tipo_visita || 'Personal', motivo_visita || null, estatus, Cordinacion_Referida || null, observaciones || null, Sexo || null, Edad ? Number(Edad) : null, municipio || null, sector || null, cargo || null, funcion || null, actividad_economica || null, funcionario || null, id_contacto, id_orden, codigo_visita]
     );
 
     const message = `Visita ${codigo_visita} actualizada correctamente.`;
