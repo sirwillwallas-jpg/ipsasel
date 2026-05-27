@@ -1012,7 +1012,7 @@ app.get('/visitas', requireContactColumns, async (req, res) => {
 app.get('/api/visitas-del-dia', requireContactColumns, async (req, res) => {
   try {
     const result = await pool.query(`
-          SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus, v.cordinacion_referida, v.observaciones,
+          SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.motivo_visita, v.estatus, v.cordinacion_referida, v.observaciones,
             v.sexo AS sexo, v.edad AS edad, v.municipio AS municipio, v.sector AS sector, v.cargo AS cargo, v.funcion AS funcion, v.actividad_economica AS actividad_economica, v.funcionario AS funcionario,
             ${contactSelectSql('c')},
             c.cedula_rif, c.telefono, c.tipo_contacto,
@@ -1044,7 +1044,7 @@ app.get('/api/visitas-por-fecha', requireContactColumns, async (req, res) => {
 
   try {
     const result = await pool.query(`
-          SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
+          SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.motivo_visita, v.estatus,
             v.sexo AS sexo, v.edad AS edad, v.municipio AS municipio, v.sector AS sector, v.cargo AS cargo, v.funcion AS funcion, v.actividad_economica AS actividad_economica, v.funcionario AS funcionario,
             ${contactSelectSql('c')},
             c.cedula_rif, c.telefono, c.tipo_contacto,
@@ -1129,6 +1129,7 @@ app.get('/api/visitas-eventos', requireContactColumns, async (req, res) => {
           funcion: visit.funcion || '',
           actividad_economica: visit.actividad_economica || '',
           funcionario: visit.funcionario || '',
+          motivo_visita: visit.motivo_visita || '',
           cordinacion_referida: visit.cordinacion_referida || '',
           observaciones: visit.observaciones || '',
           codigo_ot: visit.codigo_ot || '',
