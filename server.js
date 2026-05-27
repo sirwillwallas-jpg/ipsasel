@@ -97,6 +97,54 @@ async function runMigrationsIfNeeded() {
   });
 }
 
+// Asegurar que exista el usuario por defecto (DEFAULT_USER_ID). Si no existe,
+// intentar crearlo usando las variables de entorno APP_ADMIN_*.
+async function ensureDefaultUserExists() {
+  const id = Number(DEFAULT_USER_ID || 0);
+  if (!id || id <= 0) return;
+
+  try {
+    const check = await pool.query('SELECT id_usuario FROM USUARIOS WHERE id_usuario = $1', [id]);
+    if (check.rows.length > 0) return;
+
+    console.log(`Usuario por defecto id=${id} no existe. Intentando crear uno a partir de variables de entorno.`);
+
+    // Asegurar que exista al menos un rol
+    let roleRes = await pool.query('SELECT id_rol FROM ROLES LIMIT 1');
+    let id_rol;
+    if (roleRes.rows.length === 0) {
+      const ins = await pool.query("INSERT INTO ROLES (nombre_rol) VALUES ($1) RETURNING id_rol", ['Admin']);
+      id_rol = ins.rows[0].id_rol;
+    } else {
+      id_rol = roleRes.rows[0].id_rol;
+    }
+
+    const username = (APP_ADMIN_USERNAME || '').trim() || `admin${id}`;
+    let passwordHash = (APP_ADMIN_PASSWORD_HASH || '').trim();
+    if (!passwordHash) {
+      const plain = process.env.APP_ADMIN_PASSWORD || crypto.randomBytes(6).toString('hex');
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      passwordHash = await bcrypt.hash(plain, salt);
+      console.warn(`Se creó un usuario administrativo: username='${username}' id=${id}. Si se generó contraseña aleatoria, revisa los logs (no recomendable en producción).`);
+    }
+
+    const nombre = APP_ADMIN_NAME || username;
+
+    // Insert user with explicit id_usuario (si la tabla existe y la secuencia lo permite)
+    await pool.query(
+      `INSERT INTO USUARIOS (id_usuario, id_rol, id_empleado, nombre_completo, username, password)
+       VALUES ($1, $2, NULL, $3, $4, $5)`,
+      [id, id_rol, nombre, username, passwordHash]
+    );
+
+    console.log('Usuario por defecto creado satisfactoriamente.');
+  } catch (err) {
+    console.warn('No se pudo crear/verificar el usuario por defecto:', err && err.message ? err.message : err);
+    // No hacer throw: no debe bloquear el arranque si la DB aún no tiene esas tablas
+  }
+}
+
 function logStartupDbError(err) {
   const dbHost = databaseUrl ? '(connection string)' : (process.env.DB_HOST || '127.0.0.1');
   const dbPort = Number(process.env.DB_PORT || 5432);
@@ -1366,6 +1414,11 @@ async function startServer() {
     await runMigrationsIfNeeded();
   } catch (err) {
     console.warn('Error ejecutando migraciones al inicio (continuando):', err && err.message ? err.message : err);
+  }
+  try {
+    await ensureDefaultUserExists();
+  } catch (err) {
+    console.warn('Error asegurando usuario por defecto (continuando):', err && err.message ? err.message : err);
   }
 
   async function tryListen(p) {
