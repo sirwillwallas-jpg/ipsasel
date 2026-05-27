@@ -43,25 +43,51 @@
             </div>
 
             <div class="form-group">
+                <label for="Edad">Edad</label>
+                <input type="number" id="Edad" name="Edad" placeholder="Edad" required>
+            </div>
+
+            <div class="form-group">
               <label for="entidad">Entidad</label>
               <input type="text" id="entidad" name="entidad" placeholder="Ej. Empresa XYZ">
-            
             </div>
 
             <div class="form-group">
                 <label for="cedula_rif">Cédula / RIF</label>
-                <input type="text" id="cedula_rif" name="cedula_rif" placeholder="Documento de identidad" required>
+                <input type="number" id="cedula_rif" name="cedula_rif" placeholder="Documento de identidad" required>
             </div>
 
             <div class="form-group">
                 <label for="telefono">Teléfono</label>
-                <input type="tel" id="telefono" name="telefono" placeholder="Ej. +58 412..." required>
+                <input type="number" id="telefono" name="telefono" placeholder="Ej. +58 412..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="Municipios">Municipios</label>
+                <select id="Municipios" name="Municipios">
+                    <option value="Municipios">Municipios</option>
+                </select>
+                  <option value="Agua Blanca">Agua Blanca</option>
+                  <option value="Araure">Araure</option>
+                  <option value="Esteller">Esteller</option>
+                  <option value="Guanare">Guanare</option>
+                  <option value="Guanarito">Guanarito</option>
+                  <option value="Monseñor José Vicente de Unda">Monseñor José Vicente de Unda</option>
+                  <option value="Ospino">Ospino</option>
+                  <option value="Páez">Páez</option>
+                  <option value="Papelón">Papelón</option>
+                  <option value="San Genaro de Boconoíto">San Genaro de Boconoíto</option>
+                  <option value="San Rafael de Onoto">San Rafael de Onoto</option>
+                  <option value="Santa Rosalía">Santa Rosalía</option>
+                  <option value="Sucre">Sucre</option>
+                  <option value="Turén">Turén</option>
+                </select>
             </div>
 
             <div class="form-group">
                 <label for="Sector">Sector</label>
                 <select id="Sector" name="Sector">
-                    <option value="Publico">Publico</option>
+                    <option value="Publico">Público</option>
                     <option value="Privado">Privado</option>
                 </select>
             </div>
@@ -75,21 +101,21 @@
                 <label for="estatus">Estatus de la Solicitud</label>
                 <select id="estatus" name="estatus">
                     <option value="Procesada">Procesada</option>
-                    <option value="Rechasada">Rechasada</option>
-                    <option value="En Revision">En Revision</option>
+                    <option value="Rechasada">Rechazada</option>
+                    <option value="En Revision">En Revisión</option>
                     <option value="Otras">Otras</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label for="Cordinacion_Referida">Cordinacion Referida</label>
+                <label for="Cordinacion_Referida">Coordinación Referida</label>
                 <select id="Cordinacion_Referida" name="Cordinacion_Referida">
                     <option value="Inspecciones">Inspecciones</option>
-                    <option value="Educacion">Educacion</option>
+                    <option value="Educacion">Educación</option>
                     <option value="Sanciones">Sanciones</option>
                     <option value="Salud laboral">Salud laboral</option>
                     <option value="Psicosocial">Psicosocial</option>
-                    <option value="Epidemiologia">Epidemiologia</option>
+                    <option value="Epidemiologia">Epidemiología</option>
                 </select>
             </div>
 
