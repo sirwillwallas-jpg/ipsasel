@@ -18,6 +18,10 @@ const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || 8 * 
 const APP_ADMIN_USERNAME = process.env.APP_ADMIN_USERNAME || '';
 const APP_ADMIN_PASSWORD_HASH = process.env.APP_ADMIN_PASSWORD_HASH || '';
 const APP_ADMIN_NAME = process.env.APP_ADMIN_NAME || 'Administrador INPSASEL';
+const READONLY_VISIT_ROLE_NAME = process.env.READONLY_VISIT_ROLE_NAME || 'Registro y calendario';
+const FULL_VISIT_ACCESS_ROLE_NAMES = new Set(
+  (process.env.FULL_VISIT_ACCESS_ROLE_NAMES || 'Admin,Administrador').split(',').map((name) => name.trim()).filter(Boolean)
+);
 const DB_CONNECTION_TIMEOUT_MS = Number(process.env.DB_CONNECTION_TIMEOUT_MS || 5000);
 const DB_QUERY_TIMEOUT_MS = Number(process.env.DB_QUERY_TIMEOUT_MS || 10000);
 
@@ -142,6 +146,52 @@ async function ensureDefaultUserExists() {
   } catch (err) {
     console.warn('No se pudo crear/verificar el usuario por defecto:', err && err.message ? err.message : err);
     // No hacer throw: no debe bloquear el arranque si la DB aún no tiene esas tablas
+  }
+}
+
+async function ensureReadonlyUserExists() {
+  const username = (process.env.READONLY_USER_USERNAME || '').trim();
+  const passwordHashEnv = (process.env.READONLY_USER_PASSWORD_HASH || '').trim();
+  const passwordPlain = (process.env.READONLY_USER_PASSWORD || '').trim();
+  const fullName = (process.env.READONLY_USER_NAME || '').trim() || 'Usuario de registro';
+
+  if (!username) {
+    return;
+  }
+
+  try {
+    let passwordHash = passwordHashEnv;
+    if (!passwordHash) {
+      if (!passwordPlain) {
+        console.warn(`READONLY_USER_USERNAME está definido pero falta READONLY_USER_PASSWORD o READONLY_USER_PASSWORD_HASH.`);
+        return;
+      }
+      const salt = await bcrypt.genSalt(10);
+      passwordHash = await bcrypt.hash(passwordPlain, salt);
+    }
+
+    const roleResult = await pool.query(
+      `INSERT INTO ROLES (nombre_rol)
+       VALUES ($1)
+       ON CONFLICT (nombre_rol) DO UPDATE SET nombre_rol = EXCLUDED.nombre_rol
+       RETURNING id_rol, nombre_rol`,
+      [READONLY_VISIT_ROLE_NAME]
+    );
+
+    const userResult = await pool.query(
+      `INSERT INTO USUARIOS (id_rol, nombre_completo, username, password)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (username) DO UPDATE SET
+         id_rol = EXCLUDED.id_rol,
+         nombre_completo = EXCLUDED.nombre_completo,
+         password = EXCLUDED.password
+       RETURNING id_usuario, username, id_rol`,
+      [roleResult.rows[0].id_rol, fullName, username, passwordHash]
+    );
+
+    console.log(`Usuario reducido listo: ${userResult.rows[0].username} (${READONLY_VISIT_ROLE_NAME}).`);
+  } catch (err) {
+    console.warn('No se pudo crear/sincronizar el usuario reducido:', err && err.message ? err.message : err);
   }
 }
 
@@ -596,10 +646,45 @@ function signAuthPayload(payload) {
     .digest('base64url');
 }
 
+function userCanManageVisits(user) {
+  if (!user || !user.roleName) {
+    return true;
+  }
+
+  if (user.roleName === READONLY_VISIT_ROLE_NAME) {
+    return false;
+  }
+
+  return FULL_VISIT_ACCESS_ROLE_NAMES.has(user.roleName);
+}
+
+function requireVisitManagementPermission(req, res, next) {
+  const authUser = getAuthenticatedUser(req);
+  if (!authUser) {
+    return requireAuth(req, res, next);
+  }
+
+  if (userCanManageVisits(authUser)) {
+    req.authUser = authUser;
+    return next();
+  }
+
+  if (wantsJsonResponse(req)) {
+    return res.status(403).json({
+      success: false,
+      message: 'No tiene permisos para modificar o eliminar visitas.',
+    });
+  }
+
+  return res.status(403).send('No tiene permisos para modificar o eliminar visitas.');
+}
+
 function createAuthCookieValue(user) {
   const payload = Buffer.from(JSON.stringify({
     userId: user.id_usuario,
     username: user.username,
+    idRol: user.id_rol || null,
+    roleName: user.roleName || '',
     exp: Date.now() + AUTH_COOKIE_MAX_AGE_MS,
   })).toString('base64url');
 
@@ -636,6 +721,8 @@ function verifyAuthCookie(req) {
     return {
       userId: Number(data.userId),
       username: String(data.username || ''),
+      idRol: data.idRol ? Number(data.idRol) : null,
+      roleName: String(data.roleName || ''),
     };
   } catch (err) {
     return null;
@@ -663,6 +750,8 @@ function getAuthenticatedUser(req) {
     return {
       userId: Number(req.session.userId || DEFAULT_USER_ID),
       username: req.session.username || '',
+      idRol: req.session.idRol ? Number(req.session.idRol) : null,
+      roleName: req.session.roleName || '',
     };
   }
 
@@ -675,6 +764,8 @@ function getAuthenticatedUser(req) {
     req.session.isAuthenticated = true;
     req.session.userId = cookieUser.userId;
     req.session.username = cookieUser.username;
+    req.session.idRol = cookieUser.idRol;
+    req.session.roleName = cookieUser.roleName;
   }
 
   return cookieUser;
@@ -774,16 +865,17 @@ async function authenticateConfiguredAdmin(username, password) {
     return {
       id_usuario: DEFAULT_USER_ID,
       username: APP_ADMIN_USERNAME,
+      id_rol: null,
+      roleName: 'Admin',
     };
   }
 
   try {
     const roleResult = await pool.query(
       `INSERT INTO ROLES (nombre_rol)
-        v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.motivo_visita, v.estatus,
-        v.sexo AS sexo, v.edad AS edad,
+       VALUES ($1)
        ON CONFLICT (nombre_rol) DO UPDATE SET nombre_rol = EXCLUDED.nombre_rol
-       RETURNING id_rol`,
+       RETURNING id_rol, nombre_rol`,
       ['Admin']
     );
 
@@ -794,16 +886,21 @@ async function authenticateConfiguredAdmin(username, password) {
          id_rol = EXCLUDED.id_rol,
          nombre_completo = EXCLUDED.nombre_completo,
          password = EXCLUDED.password
-       RETURNING id_usuario, username`,
+       RETURNING id_usuario, username, id_rol`,
       [roleResult.rows[0].id_rol, APP_ADMIN_NAME, APP_ADMIN_USERNAME, APP_ADMIN_PASSWORD_HASH]
     );
 
-    return userResult.rows[0];
+    return {
+      ...userResult.rows[0],
+      roleName: roleResult.rows[0].nombre_rol,
+    };
   } catch (err) {
     console.warn('No se pudo sincronizar el usuario administrador en PostgreSQL:', err && err.message ? err.message : err);
     return {
       id_usuario: DEFAULT_USER_ID,
       username: APP_ADMIN_USERNAME,
+      id_rol: null,
+      roleName: 'Admin',
     };
   }
 }
@@ -812,6 +909,8 @@ function establishLoginSession(req, res, user, redirectTo) {
   req.session.isAuthenticated = true;
   req.session.userId = user.id_usuario;
   req.session.username = user.username;
+  req.session.idRol = user.id_rol || null;
+  req.session.roleName = user.roleName || '';
   setAuthCookie(res, user);
   return res.redirect(303, redirectTo);
 }
@@ -837,15 +936,15 @@ app.get('/register-visit', (req, res) => {
   sendStaticHtml(res, 'index.html');
 });
 
-app.get('/modify-visit', (req, res) => {
+app.get('/modify-visit', requireVisitManagementPermission, (req, res) => {
   sendStaticHtml(res, 'modify_visit.html');
 });
 
-app.get('/delete-visit', (req, res) => {
+app.get('/delete-visit', requireVisitManagementPermission, (req, res) => {
   sendStaticHtml(res, 'delete_visit.html');
 });
 
-app.post('/delete-visit', async (req, res) => {
+app.post('/delete-visit', requireVisitManagementPermission, async (req, res) => {
   const { codigo_visita } = req.body;
   if (!codigo_visita) {
     return res.status(400).send(`
@@ -889,7 +988,20 @@ app.post('/delete-visit', async (req, res) => {
 });
 
 app.get('/menu', (req, res) => {
-  sendStaticHtml(res, 'menu_index.html');
+  const user = getAuthenticatedUser(req);
+  const html = loadHtmlPage('menu_index.html');
+
+  const visitLinks = userCanManageVisits(user)
+    ? `
+                        <li><a class="menu-btn" href="/register-visit">Registrar</a></li>
+                        <li><a class="menu-btn" href="/modify-visit">Modificar</a></li>
+                        <li><a class="menu-btn" href="/delete-visit">Eliminar</a></li>
+    `
+    : `
+                        <li><a class="menu-btn" href="/register-visit">Registrar</a></li>
+    `;
+
+  res.type('html').send(html.replace('<!-- VISIT_ACTIONS -->', visitLinks));
 });
 
 app.get('/2index', (req, res) => {
@@ -1227,7 +1339,7 @@ app.get('/api/visitas-eventos', requireContactColumns, async (req, res) => {
 });
 
 // Ruta para modificar visita
-app.post('/modify-visit', requireContactColumns, async (req, res) => {
+app.post('/modify-visit', requireVisitManagementPermission, requireContactColumns, async (req, res) => {
   const {
     codigo_visita,
     fecha,
@@ -1367,7 +1479,13 @@ app.post('/login', async (req, res) => {
       return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contrasena incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
     }
 
-    const result = await pool.query('SELECT id_usuario, username, password FROM USUARIOS WHERE username = $1', [username]);
+    const result = await pool.query(
+      `SELECT u.id_usuario, u.username, u.password, u.id_rol, COALESCE(r.nombre_rol, '') AS roleName
+       FROM USUARIOS u
+       LEFT JOIN ROLES r ON r.id_rol = u.id_rol
+       WHERE u.username = $1`,
+      [username]
+    );
     if (result.rows.length > 0) {
       const user = result.rows[0];
       const match = await bcrypt.compare(password, user.password);
@@ -1419,6 +1537,11 @@ async function startServer() {
     await ensureDefaultUserExists();
   } catch (err) {
     console.warn('Error asegurando usuario por defecto (continuando):', err && err.message ? err.message : err);
+  }
+  try {
+    await ensureReadonlyUserExists();
+  } catch (err) {
+    console.warn('Error asegurando usuario reducido (continuando):', err && err.message ? err.message : err);
   }
 
   async function tryListen(p) {
