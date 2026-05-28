@@ -1497,7 +1497,7 @@ app.post('/login', async (req, res) => {
         return establishLoginSession(req, res, configuredAdmin, redirectTo);
       }
 
-      return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contrasena incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
+      return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contraseña incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
     }
 
     const result = await pool.query(
@@ -1515,7 +1515,7 @@ app.post('/login', async (req, res) => {
       }
     }
 
-    return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contrasena incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
+    return res.redirect(303, `/login?error=${encodeURIComponent('Usuario o contraseña incorrectos.')}&next=${encodeURIComponent(redirectTo)}`);
   } catch (err) {
     console.error(err);
     return res.redirect(303, `/login?error=${encodeURIComponent('No se pudo validar el acceso. Intente nuevamente.')}&next=${encodeURIComponent(redirectTo)}`);
