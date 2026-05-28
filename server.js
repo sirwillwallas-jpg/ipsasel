@@ -16,6 +16,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'secreto_ipsasel';
 const AUTH_COOKIE_NAME = 'ipsasel_auth';
 const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || 8 * 60 * 60 * 1000);
 const APP_ADMIN_USERNAME = process.env.APP_ADMIN_USERNAME || '';
+const APP_ADMIN_PASSWORD = process.env.APP_ADMIN_PASSWORD || '';
 const APP_ADMIN_PASSWORD_HASH = process.env.APP_ADMIN_PASSWORD_HASH || '';
 const APP_ADMIN_NAME = process.env.APP_ADMIN_NAME || 'Administrador INPSASEL';
 const READONLY_VISIT_ROLE_NAME = process.env.READONLY_VISIT_ROLE_NAME || 'Registro y calendario';
@@ -852,11 +853,20 @@ function hasConfiguredDatabase() {
 }
 
 async function authenticateConfiguredAdmin(username, password) {
-  if (!APP_ADMIN_USERNAME || !APP_ADMIN_PASSWORD_HASH || username !== APP_ADMIN_USERNAME) {
+  if (!APP_ADMIN_USERNAME || username !== APP_ADMIN_USERNAME) {
     return null;
   }
 
-  const match = await bcrypt.compare(password, APP_ADMIN_PASSWORD_HASH);
+  const configuredHash = (APP_ADMIN_PASSWORD_HASH || '').trim();
+  const configuredPlain = (APP_ADMIN_PASSWORD || '').trim();
+
+  let match = false;
+  if (configuredHash) {
+    match = await bcrypt.compare(password, configuredHash);
+  } else if (configuredPlain) {
+    match = password === configuredPlain;
+  }
+
   if (!match) {
     return null;
   }
@@ -871,6 +881,12 @@ async function authenticateConfiguredAdmin(username, password) {
   }
 
   try {
+    let passwordForStorage = configuredHash;
+    if (!passwordForStorage && configuredPlain) {
+      const salt = await bcrypt.genSalt(10);
+      passwordForStorage = await bcrypt.hash(configuredPlain, salt);
+    }
+
     const roleResult = await pool.query(
       `INSERT INTO ROLES (nombre_rol)
        VALUES ($1)
@@ -887,7 +903,12 @@ async function authenticateConfiguredAdmin(username, password) {
          nombre_completo = EXCLUDED.nombre_completo,
          password = EXCLUDED.password
        RETURNING id_usuario, username, id_rol`,
-      [roleResult.rows[0].id_rol, APP_ADMIN_NAME, APP_ADMIN_USERNAME, APP_ADMIN_PASSWORD_HASH]
+      [
+        roleResult.rows[0].id_rol,
+        APP_ADMIN_NAME,
+        APP_ADMIN_USERNAME,
+        passwordForStorage,
+      ]
     );
 
     return {
