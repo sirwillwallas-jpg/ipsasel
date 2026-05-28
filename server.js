@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// Servidor principal del sistema: maneja autenticacion, vistas HTML, API y acceso a PostgreSQL.
 const app = express();
 app.set('trust proxy', 1);
 const port = Number(process.env.PORT || 3000);
@@ -82,6 +83,7 @@ pool.on('error', (err) => {
 // Ejecutar migraciones SQL al iniciar (si existe el runner)
 const { execFile } = require('child_process');
 async function runMigrationsIfNeeded() {
+  // Ejecuta migraciones en arranque si el runner existe en el proyecto.
   const migrationsRunner = resolveAssetPath('apply_migrations.js');
   if (!fs.existsSync(migrationsRunner)) {
     return;
@@ -109,6 +111,7 @@ async function runMigrationsIfNeeded() {
 // Asegurar que exista el usuario por defecto (DEFAULT_USER_ID). Si no existe,
 // intentar crearlo usando las variables de entorno APP_ADMIN_*.
 async function ensureDefaultUserExists() {
+  // Garantiza que exista el usuario administrativo principal antes de aceptar logins.
   const id = Number(DEFAULT_USER_ID || 0);
   if (!id || id <= 0) return;
 
@@ -155,6 +158,7 @@ async function ensureDefaultUserExists() {
 }
 
 async function ensureReadonlyUserExists() {
+  // Sincroniza el usuario de solo lectura cuando se configura por variables de entorno.
   const username = (process.env.READONLY_USER_USERNAME || '').trim();
   const passwordHashEnv = (process.env.READONLY_USER_PASSWORD_HASH || '').trim();
   const passwordPlain = (process.env.READONLY_USER_PASSWORD || '').trim();
@@ -227,6 +231,7 @@ let supportsSplitContactFields = false;
 let detectColumnsPromise = null;
 
 async function detectContactColumns() {
+  // Detecta si la tabla CONTACTOS ya usa el esquema nuevo con nombre_completo y entidad separados.
   try {
     const result = await pool.query(`
       SELECT column_name
@@ -247,6 +252,7 @@ async function detectContactColumns() {
 }
 
 function contactSelectSql(alias = 'c') {
+  // Devuelve la lista de columnas correcta segun el esquema de contactos disponible.
   if (supportsSplitContactFields) {
     return `${alias}.nombre_completo, ${alias}.entidad, COALESCE(NULLIF(${alias}.entidad, ''), NULLIF(${alias}.nombre_completo, ''), ${alias}.nombre_entidad) AS nombre_entidad`;
   }
@@ -254,6 +260,7 @@ function contactSelectSql(alias = 'c') {
 }
 
 function contactSearchSql(alias = 'c') {
+  // Construye el filtro de busqueda compatible con ambos esquemas de contactos.
   if (supportsSplitContactFields) {
     return `COALESCE(${alias}.nombre_completo, '') ILIKE $1 OR COALESCE(${alias}.entidad, '') ILIKE $1 OR COALESCE(${alias}.nombre_entidad, '') ILIKE $1`;
   }
@@ -272,6 +279,7 @@ async function ensureContactColumns() {
 }
 
 function normalizeContactData(body) {
+  // Normaliza datos de contacto para soportar formularios nuevos y datos legacy.
   const tipoContacto = (body.tipo_contacto || '').trim();
   const legacyNombreEntidad = (body.nombre_entidad || '').trim();
   let nombreCompleto = (body.nombre_completo || '').trim();
@@ -294,6 +302,7 @@ function normalizeContactData(body) {
 }
 
 function validateVisitBody(body) {
+  // Valida el payload de visitas antes de escribir en base de datos.
   const errors = [];
   const {
     fecha,
@@ -645,6 +654,7 @@ function parseCookies(req) {
 }
 
 function signAuthPayload(payload) {
+  // Firma el contenido de la cookie de autenticacion con HMAC.
   return crypto
     .createHmac('sha256', SESSION_SECRET)
     .update(payload)
@@ -652,6 +662,7 @@ function signAuthPayload(payload) {
 }
 
 function userCanManageVisits(user) {
+  // Define si el usuario puede modificar o eliminar visitas.
   if (!user) return false;
 
   // If user has an explicit readonly role, deny management
@@ -685,6 +696,7 @@ function requireVisitManagementPermission(req, res, next) {
 }
 
 function createAuthCookieValue(user) {
+  // Empaqueta identidad y expiracion en una cookie firmada.
   const payload = Buffer.from(JSON.stringify({
     userId: user.id_usuario,
     username: user.username,
@@ -697,6 +709,7 @@ function createAuthCookieValue(user) {
 }
 
 function verifyAuthCookie(req) {
+  // Valida la integridad y vigencia de la cookie de autenticacion.
   const rawCookie = parseCookies(req)[AUTH_COOKIE_NAME];
   if (!rawCookie) {
     return null;
@@ -735,6 +748,7 @@ function verifyAuthCookie(req) {
 }
 
 function setAuthCookie(res, user) {
+  // Persistencia de sesion basada en cookie HTTP-only.
   res.cookie(AUTH_COOKIE_NAME, createAuthCookieValue(user), {
     httpOnly: true,
     sameSite: 'lax',
@@ -751,6 +765,7 @@ function clearAuthCookie(res) {
 }
 
 function getAuthenticatedUser(req) {
+  // Resuelve el usuario autenticado desde sesion o cookie firmada.
   if (req.session && req.session.isAuthenticated) {
     return {
       userId: Number(req.session.userId || DEFAULT_USER_ID),
@@ -777,11 +792,13 @@ function getAuthenticatedUser(req) {
 }
 
 function wantsJsonResponse(req) {
+  // Decide si la respuesta debe ser JSON por ruta o cabecera Accept.
   const acceptHeader = req.headers.accept || '';
   return req.path.startsWith('/api') || acceptHeader.includes('application/json');
 }
 
 function sanitizeRedirect(target) {
+  // Evita redirecciones abiertas a destinos externos o rutas no permitidas.
   if (!target || typeof target !== 'string') {
     return '/menu';
   }
@@ -794,6 +811,7 @@ function sanitizeRedirect(target) {
 }
 
 function loginRedirectUrl(req) {
+  // Conserva la ruta original para regresar al punto de origen tras autenticar.
   if (!req.originalUrl || req.originalUrl === '/' || req.originalUrl.startsWith('/login')) {
     return '/login';
   }
@@ -802,6 +820,7 @@ function loginRedirectUrl(req) {
 }
 
 function requireAuth(req, res, next) {
+  // Middleware para proteger rutas privadas.
   const authUser = getAuthenticatedUser(req);
   if (authUser) {
     req.authUser = authUser;
@@ -823,6 +842,7 @@ function isPublicAsset(pathname) {
 }
 
 function isPublicRequest(req) {
+  // Excepciones de acceso: login, assets publicos y opciones CORS.
   if (req.method === 'OPTIONS') {
     return true;
   }
@@ -839,6 +859,7 @@ function isPublicRequest(req) {
 }
 
 function hasConfiguredDatabase() {
+  // Detecta si hay credenciales de base de datos disponibles en el entorno.
   if (!databaseUrl && process.env.VERCEL && ['127.0.0.1', 'localhost'].includes(databaseHost)) {
     return false;
   }
@@ -857,6 +878,7 @@ function hasConfiguredDatabase() {
 }
 
 async function authenticateConfiguredAdmin(username, password) {
+  // Autentica el superusuario configurado en variables de entorno y lo sincroniza en DB si hace falta.
   if (!APP_ADMIN_USERNAME || username !== APP_ADMIN_USERNAME) {
     return null;
   }
@@ -931,6 +953,7 @@ async function authenticateConfiguredAdmin(username, password) {
 }
 
 function establishLoginSession(req, res, user, redirectTo) {
+  // Centraliza el alta de la sesion web y la cookie firmada.
   req.session.isAuthenticated = true;
   req.session.userId = user.id_usuario;
   req.session.username = user.username;
@@ -942,6 +965,7 @@ function establishLoginSession(req, res, user, redirectTo) {
 
 // Rutas
 app.get('/', (req, res) => {
+  // Redirige al panel o presenta el login segun el estado de autenticacion.
   if (getAuthenticatedUser(req)) {
     return res.redirect('/menu');
   }
@@ -1013,6 +1037,7 @@ app.post('/delete-visit', requireVisitManagementPermission, async (req, res) => 
 });
 
 app.get('/menu', (req, res) => {
+  // Construye el menu segun permisos del usuario autenticado.
   const user = getAuthenticatedUser(req);
   const html = loadHtmlPage('menu_index.html');
 
@@ -1043,6 +1068,7 @@ app.get('/visitas-del-dia', (req, res) => {
 
 // Inicializar detección de columnas sólo en rutas que usan base de datos
 async function requireContactColumns(req, res, next) {
+  // Asegura que la deteccion del esquema de contactos este lista antes de usar rutas de DB.
   try {
     await ensureContactColumns();
     next();
@@ -1053,6 +1079,7 @@ async function requireContactColumns(req, res, next) {
 
 // Ruta para registrar visita
 app.post('/register-visit', requireContactColumns, async (req, res) => {
+  // Guarda una nueva visita junto con el contacto y orden de trabajo asociados.
   const {
     fecha,
     hora,
@@ -1168,6 +1195,7 @@ app.post('/register-visit', requireContactColumns, async (req, res) => {
 
 // API para buscar visitas por código o datos parciales
 app.get('/api/visitas', requireContactColumns, async (req, res) => {
+  // Busca visitas por codigo, cedula o datos parciales del contacto.
   const { codigo_visita } = req.query;
   if (!codigo_visita) {
     return res.status(400).json({ success: false, message: 'Código de visita requerido' });
@@ -1200,6 +1228,7 @@ app.get('/api/visitas', requireContactColumns, async (req, res) => {
 
 // Listar visitas recientes
 app.get('/visitas', requireContactColumns, async (req, res) => {
+  // Devuelve un listado resumido de visitas recientes.
   try {
     const result = await pool.query(`
        SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.motivo_visita, v.estatus, v.cordinacion_referida, v.observaciones,
@@ -1222,6 +1251,7 @@ app.get('/visitas', requireContactColumns, async (req, res) => {
 
 // Listar visitas de la fecha actual
 app.get('/api/visitas-del-dia', requireContactColumns, async (req, res) => {
+  // Devuelve todas las visitas del dia actual.
   try {
     const result = await pool.query(`
           SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.motivo_visita, v.estatus, v.cordinacion_referida, v.observaciones,
@@ -1245,6 +1275,7 @@ app.get('/api/visitas-del-dia', requireContactColumns, async (req, res) => {
 
 // Listar visitas por fecha puntual (AAAA-MM-DD)
 app.get('/api/visitas-por-fecha', requireContactColumns, async (req, res) => {
+  // Devuelve las visitas de una fecha puntual.
   const { fecha } = req.query;
 
   if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
@@ -1281,6 +1312,7 @@ function isPostgresAuthError(err) {
 
 // Eventos para FullCalendar
 app.get('/api/visitas-calendario-resumen', requireContactColumns, async (req, res) => {
+  // Resume cuantas visitas existen por fecha para pintar el calendario.
   try {
     const result = await pool.query(`
       SELECT
@@ -1299,6 +1331,7 @@ app.get('/api/visitas-calendario-resumen', requireContactColumns, async (req, re
 });
 
 app.get('/api/visitas-eventos', requireContactColumns, async (req, res) => {
+  // Convierte las visitas en eventos listos para calendarios en frontend.
   try {
     const result = await pool.query(`
           SELECT v.codigo_visita, v.fecha, v.hora, v.tipo_visita, v.estatus,
@@ -1365,6 +1398,7 @@ app.get('/api/visitas-eventos', requireContactColumns, async (req, res) => {
 
 // Ruta para modificar visita
 app.post('/modify-visit', requireVisitManagementPermission, requireContactColumns, async (req, res) => {
+  // Actualiza una visita existente y conserva la relacion con contacto y orden.
   const {
     codigo_visita,
     fecha,
@@ -1487,6 +1521,7 @@ app.post('/modify-visit', requireVisitManagementPermission, requireContactColumn
 
 // Ruta para login
 app.post('/login', async (req, res) => {
+  // Resuelve login con superusuario configurado o usuarios almacenados en DB.
   const { username, password, next } = req.body;
   const redirectTo = sanitizeRedirect(next);
 
@@ -1587,6 +1622,7 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/logout', (req, res) => {
+  // Cierra la sesion de usuario y borra la cookie firmada.
   clearAuthCookie(res);
 
   if (!req.session) {
@@ -1600,6 +1636,7 @@ app.post('/logout', (req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  // Captura final de errores no manejados por rutas o middlewares previos.
   console.error('Unhandled error:', err);
   const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   if (wantsJson) {
@@ -1610,6 +1647,7 @@ app.use((err, req, res, next) => {
 
 // Iniciar servidor
 async function startServer() {
+  // Arranque ordenado: migraciones, usuarios base y escucha del puerto.
   const maxAttempts = 5;
   let currentPort = port;
 

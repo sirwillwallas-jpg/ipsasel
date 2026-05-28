@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
+// Utilidad simple para aplicar migraciones SQL en orden alfanumerico.
 const migrationsDir = path.join(__dirname, 'migrations');
 
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL_UNPOOLED || '';
@@ -21,6 +22,7 @@ if (databaseUrl) {
 }
 
 async function run() {
+  // Conecta, recorre migraciones y aplica el esquema secuencialmente.
   console.log('Conectando a la base de datos...');
   try {
     await pool.connect();

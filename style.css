@@ -1,4 +1,5 @@
-﻿:root {
+﻿/* Hoja compartida para login y formulario de registro con lenguaje visual institucional. */
+:root {
     --primary-color: #2563eb;
     --secondary-color: #06b6d4;
     --surface-bg: rgba(255, 255, 255, 0.92);

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { API_BASE_URL } from './src/config';
 
+// Pantalla principal del visor movil: calendario, listado y detalles de visitas.
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
 const REQUEST_TIMEOUT_MS = 8000;
 
@@ -77,6 +78,7 @@ function getUserFriendlyError(error) {
 }
 
 async function fetchJsonWithTimeout(pathname, errorMessage) {
+  // Encapsula peticiones al backend con tiempo maximo y mensaje amigable.
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 

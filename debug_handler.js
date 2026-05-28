@@ -1,5 +1,6 @@
 const handler = require('./api/index');
 
+// Pequeño runner local para comprobar la funcion serverless sin desplegar a Vercel.
 const event = {
   httpMethod: 'GET',
   path: '/',

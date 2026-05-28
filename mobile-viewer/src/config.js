@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// Resuelve automaticamente la URL del backend para web, Expo Go y red local.
 const FALLBACK_API_BASE_URL = 'http://192.168.1.5:3000';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
 
